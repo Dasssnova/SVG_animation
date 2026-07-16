@@ -1,0 +1,223 @@
+"use client";
+
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { GIFEncoder, applyPalette, quantize } from "gifenc";
+
+type Motion = "rotate" | "translate" | "fade" | "scale" | "bounce" | "draw";
+type Preset = "flyback" | "heartbeat" | "firework" | "sway" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
+type Anim = { motion: Motion; preset?: Preset; duration: number; delay: number; easing: string; iterations: string; distance: number; angle: number; direction: "normal" | "reverse" | "alternate"; dx?: number; dy?: number; origin?: string };
+type Layer = { id: string; label: string; tag: string };
+
+const demoSvg = `<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg"><g id="orbit"><circle cx="120" cy="120" r="85" fill="none" stroke="#565B68" stroke-width="3" stroke-dasharray="8 10"/><circle cx="120" cy="35" r="11" fill="#D7FF3F"/></g><g id="spark"><path d="M120 58L135 102L182 105L144 133L155 179L120 152L85 179L96 133L58 105L105 102Z" fill="#F6F7F9"/><circle cx="120" cy="120" r="18" fill="#16191F"/></g></svg>`;
+
+const defaults: Anim = { motion: "rotate", duration: 1.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "infinite", distance: 24, angle: 360, direction: "normal" };
+const easingOptions = [
+  ["Плавно", "cubic-bezier(.45,0,.2,1)"], ["Ускорение", "cubic-bezier(.4,0,1,1)"],
+  ["Замедление", "cubic-bezier(0,0,.2,1)"], ["Мягкая пружина", "cubic-bezier(.34,1.56,.64,1)"],
+  ["Ровно", "linear"],
+];
+const motions: { id: Motion; icon: string; name: string }[] = [
+  { id: "rotate", icon: "↻", name: "Поворот" }, { id: "translate", icon: "↔", name: "Сдвиг" },
+  { id: "fade", icon: "◐", name: "Исчезание" }, { id: "scale", icon: "⤢", name: "Масштаб" },
+  { id: "bounce", icon: "⌁", name: "Прыжок" }, { id: "draw", icon: "✎", name: "Контур" },
+];
+const presets: { id: Preset; icon: string; name: string; note: string }[] = [
+  { id: "flyback", icon: "⇢", name: "Вылет и возврат", note: "Стоп · вылет назад" },
+  { id: "heartbeat", icon: "♥", name: "Биение сердца", note: "Двойной пульс" },
+  { id: "firework", icon: "✦", name: "Фейерверк", note: "Из центра наружу" },
+  { id: "sway", icon: "≈", name: "Покачивание", note: "Мягко из стороны в сторону" },
+  { id: "liquid", icon: "◒", name: "Жидкая заливка", note: "Подъём снизу" },
+  { id: "jump", icon: "↟", name: "Подпрыгивание", note: "Ритмично вверх и вниз" },
+  { id: "fadeSequence", icon: "◌", name: "Поочерёдное появление", note: "Каждый элемент отдельно" },
+  { id: "swayY", icon: "↕", name: "Покачивание вверх-вниз", note: "Мягкая вертикальная петля" },
+  { id: "swayX", icon: "↔", name: "Покачивание вправо-влево", note: "Мягкая горизонтальная петля" },
+  { id: "bell", icon: "♧", name: "Колокольчик", note: "Вращение от точки подвеса" },
+  { id: "drawForward", icon: "↝", name: "Линия: вперёд", note: "От начала к концу" },
+  { id: "drawReverse", icon: "↜", name: "Линия: назад", note: "От конца к началу" },
+];
+
+function prepareSvg(raw: string) {
+  const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
+  if (doc.querySelector("parsererror") || doc.documentElement.tagName.toLowerCase() !== "svg") throw new Error("Это невалидный SVG-файл");
+  doc.querySelectorAll("script,foreignObject,iframe").forEach((n) => n.remove());
+  doc.querySelectorAll("*").forEach((node) => {
+    [...node.attributes].forEach((a) => { if (/^on/i.test(a.name) || /javascript:/i.test(a.value)) node.removeAttribute(a.name); });
+  });
+  const svg = doc.documentElement;
+  const originalWidth = svg.getAttribute("width"); const originalHeight = svg.getAttribute("height");
+  if (!svg.getAttribute("viewBox")) {
+    const w = parseFloat(svg.getAttribute("width") || "240"), h = parseFloat(svg.getAttribute("height") || "240");
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+  const viewBox = (svg.getAttribute("viewBox") || "0 0 240 240").trim().split(/[ ,]+/).map(Number); const viewWidth = Math.abs(viewBox[2]) || 240, viewHeight = Math.abs(viewBox[3]) || 240;
+  const numericWidth = originalWidth && !originalWidth.includes("%") ? parseFloat(originalWidth) : NaN; const numericHeight = originalHeight && !originalHeight.includes("%") ? parseFloat(originalHeight) : NaN;
+  const exportWidth = Number.isFinite(numericWidth) && numericWidth > 0 ? numericWidth : Number.isFinite(numericHeight) && numericHeight > 0 ? numericHeight * viewWidth / viewHeight : viewWidth;
+  const exportHeight = Number.isFinite(numericHeight) && numericHeight > 0 ? numericHeight : exportWidth * viewHeight / viewWidth;
+  svg.setAttribute("data-export-width", String(exportWidth)); svg.setAttribute("data-export-height", String(exportHeight));
+  svg.removeAttribute("width"); svg.removeAttribute("height");
+  const candidates = [...svg.children].filter((n) => !["defs", "style", "title", "desc"].includes(n.tagName.toLowerCase()));
+  const layers: Layer[] = candidates.map((node, i) => {
+    const id = `motion-layer-${i + 1}`; node.setAttribute("data-motion-id", id);
+    return { id, tag: node.tagName.toLowerCase(), label: node.getAttribute("id") || node.getAttribute("aria-label") || `${node.tagName} ${i + 1}` };
+  });
+  return { svg: new XMLSerializer().serializeToString(svg), layers };
+}
+
+function keyframes(a: Anim) {
+  if (a.preset === "flyback") return `0%{transform:translateX(-${a.distance * 1.4}px);opacity:0}22%{transform:translateX(0);opacity:1}52%{transform:translateX(0);opacity:1}78%,100%{transform:translateX(${a.distance * 1.4}px);opacity:0}}`;
+  if (a.preset === "heartbeat") return `0%,28%,100%{transform:scale(1)}10%{transform:scale(1.16)}18%{transform:scale(.96)}24%{transform:scale(1.1)}}`;
+  if (a.preset === "firework") return `0%,100%{transform:scale(1)}12%{transform:scale(.92)}28%{transform:scale(1.08)}45%{transform:scale(1)}}`;
+  if (a.preset === "sway") return `0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}`;
+  if (a.preset === "liquid") return `0%{transform:translateY(${a.distance * 2.4}px) scaleY(.12);opacity:0}18%{opacity:.45}72%{transform:translateY(-3px) scaleY(1.04);opacity:1}88%,100%{transform:translateY(0) scaleY(1);opacity:1}}`;
+  if (a.preset === "jump") return `0%,100%{transform:translateY(0)}38%{transform:translateY(-${a.distance}px)}55%{transform:translateY(3px) scaleY(.94)}68%{transform:translateY(-${a.distance * .28}px)}82%{transform:translateY(0)}}`;
+  if (a.preset === "fadeSequence") return `0%,15%{opacity:0;transform:scale(.88)}38%,68%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.96)}}`;
+  if (a.preset === "swayY") return `0%,100%{transform:translateY(-${a.distance}px)}50%{transform:translateY(${a.distance}px)}}`;
+  if (a.preset === "swayX") return `0%,100%{transform:translateX(-${a.distance}px)}50%{transform:translateX(${a.distance}px)}}`;
+  if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
+  if (a.preset === "drawForward") return `0%{stroke-dashoffset:100}100%{stroke-dashoffset:0}}`;
+  if (a.preset === "drawReverse") return `0%{stroke-dashoffset:-100}100%{stroke-dashoffset:0}}`;
+  const d = a.distance, angle = a.angle;
+  if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
+  if (a.motion === "translate") return `0%,100%{transform:translateX(0)}50%{transform:translateX(${d}px)}}`;
+  if (a.motion === "fade") return `0%,100%{opacity:1}50%{opacity:0}}`;
+  if (a.motion === "scale") return `0%,100%{transform:scale(1)}50%{transform:scale(${Math.max(.05, d / 20).toFixed(2)})}}`;
+  if (a.motion === "bounce") return `0%,100%{transform:translateY(0)}45%{transform:translateY(-${d}px)}65%{transform:translateY(${Math.round(d * .18)}px)}}`;
+  return `0%{stroke-dashoffset:220}100%{stroke-dashoffset:0}}`;
+}
+
+function buildAnimated(svgText: string, animations: Record<string, Anim>, playing = true, seekSeconds?: number) {
+  const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  doc.querySelector("style[data-motion-styles]")?.remove();
+  doc.querySelector("[data-motion-particles]")?.remove();
+  const rules: string[] = [];
+  Object.entries(animations).forEach(([id, a], i) => {
+    const name = `iconMotion${i}`;
+    rules.push(`@keyframes ${name}{${keyframes(a)}`);
+    const isDraw = a.motion === "draw" || a.preset === "drawForward" || a.preset === "drawReverse";
+    if (isDraw) doc.querySelector(`[data-motion-id="${id}"]`)?.querySelectorAll("path,line,polyline,polygon,circle,rect").forEach(el => el.setAttribute("pathLength", "100"));
+    const target = isDraw ? `[data-motion-id="${id}"],[data-motion-id="${id}"] path,[data-motion-id="${id}"] line,[data-motion-id="${id}"] polyline,[data-motion-id="${id}"] polygon,[data-motion-id="${id}"] circle,[data-motion-id="${id}"] rect` : `[data-motion-id="${id}"]`;
+    const draw = isDraw ? "stroke-dasharray:100;" : "";
+    const delay = seekSeconds === undefined ? a.delay : a.delay - seekSeconds;
+    rules.push(`${target}{${draw}transform-box:fill-box;transform-origin:${a.origin || "center"};animation:${name} ${a.duration}s ${a.easing} ${delay}s ${a.iterations} ${a.direction};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
+  });
+  const firework = Object.values(animations).find(a => a.preset === "firework");
+  if (firework) {
+    const svg = doc.documentElement; const viewBox = (svg.getAttribute("viewBox") || "0 0 240 240").split(/\s+/).map(Number);
+    const cx = viewBox[0] + viewBox[2] / 2, cy = viewBox[1] + viewBox[3] / 2;
+    const group = doc.createElementNS("http://www.w3.org/2000/svg", "g"); group.setAttribute("data-motion-particles", "true"); group.setAttribute("pointer-events", "none");
+    Array.from({ length: 20 }).forEach((_, i) => {
+      const line = doc.createElementNS("http://www.w3.org/2000/svg", "line"); const angle = i * 18 + (i % 2) * 5; const radius = 52 + (i % 4) * 12;
+      line.setAttribute("x1", String(cx)); line.setAttribute("y1", String(cy - 3)); line.setAttribute("x2", String(cx)); line.setAttribute("y2", String(cy + 5 + (i % 3) * 2)); line.setAttribute("stroke", i % 3 === 0 ? "#ffffff" : "#d8ff3e"); line.setAttribute("stroke-width", i % 2 ? "2" : "3"); line.setAttribute("stroke-linecap", "round"); line.setAttribute("data-particle", String(i)); group.appendChild(line);
+      const pn = `particleBurst${i}`; rules.push(`@keyframes ${pn}{0%,8%{transform:rotate(${angle}deg) translateY(0) scaleY(.15);opacity:0}20%{opacity:1}68%{transform:rotate(${angle}deg) translateY(-${radius}px) scaleY(1);opacity:1}100%{transform:rotate(${angle}deg) translateY(-${radius * 1.3}px) scaleY(.35);opacity:0}}`);
+      const particleDelay = i * .018 - (seekSeconds || 0);
+      rules.push(`[data-particle="${i}"]{transform-origin:${cx}px ${cy}px;animation:${pn} ${firework.duration}s ${firework.easing} ${particleDelay}s ${firework.iterations};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
+    });
+    svg.appendChild(group);
+  }
+  const style = doc.createElementNS("http://www.w3.org/2000/svg", "style"); style.setAttribute("data-motion-styles", "true"); style.textContent = rules.join("\n");
+  doc.documentElement.insertBefore(style, doc.documentElement.firstChild);
+  return new XMLSerializer().serializeToString(doc.documentElement);
+}
+
+export default function Home() {
+  const [svgText, setSvgText] = useState(""); const [layers, setLayers] = useState<Layer[]>([]);
+  const [selected, setSelected] = useState<string[]>([]); const [animations, setAnimations] = useState<Record<string, Anim>>({});
+  const [settings, setSettings] = useState<Anim>(defaults); const [playing, setPlaying] = useState(true);
+  const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("icon");
+  const [gifProgress, setGifProgress] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = (raw: string, name = "icon") => { try { const parsed = prepareSvg(raw); setSvgText(parsed.svg); setLayers(parsed.layers); setSelected(parsed.layers[0] ? [parsed.layers[0].id] : ["__root"]); setAnimations({}); setFileName(name.replace(/\.svg$/i, "")); setError(""); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось прочитать SVG"); } };
+  useEffect(() => { load(demoSvg, "orbit-star"); }, []);
+  const targets = selected.length ? selected : ["__root"];
+  const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
+  const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
+  const appliedCount = Object.keys(animations).length;
+
+  const choose = (id: string, additive: boolean) => { setSelected(prev => additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev.filter(x => x !== "__root"), id]) : [id]); const a = animations[id]; if (a) setSettings(a); };
+  const apply = () => setAnimations(prev => { if (targets.includes("__root")) return Object.fromEntries(layers.map(layer => [layer.id, { ...settings }])); const next = { ...prev }; targets.forEach(id => { next[id] = { ...settings }; }); return next; });
+  const applyPreset = (preset: Preset) => {
+    const recipe: Record<Preset, Partial<Anim>> = {
+      flyback: { duration: 2.4, easing: "cubic-bezier(.65,0,.35,1)", distance: 42 },
+      heartbeat: { duration: 1.35, easing: "cubic-bezier(.22,.8,.3,1)", distance: 18 },
+      firework: { duration: 2.2, easing: "cubic-bezier(.18,.75,.25,1)", distance: 72 },
+      sway: { duration: 2.8, easing: "ease-in-out", distance: 10 },
+      liquid: { duration: 2.6, easing: "cubic-bezier(.2,.75,.3,1)", distance: 48, iterations: "1" },
+      jump: { duration: 1.3, easing: "cubic-bezier(.3,.8,.35,1)", distance: 22 },
+      fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
+      swayX: { duration: 2.4, easing: "ease-in-out", distance: 7 },
+      swayY: { duration: 2.4, easing: "ease-in-out", distance: 7 },
+      bell: { duration: 1.8, easing: "ease-in-out", angle: 160, origin: "50% 0%" },
+      drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw" },
+      drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw" },
+    };
+    const base = { ...settings, ...recipe[preset], preset };
+    const next: Record<string, Anim> = {};
+    const count = Math.max(layers.length, 1);
+    layers.forEach((layer, i) => {
+      const angle = -Math.PI / 2 + (Math.PI * 2 * i) / count;
+      const radius = 48 + (i % 3) * 16;
+      const stagger = preset === "fadeSequence" ? i * .22 : preset === "liquid" ? i * .035 : 0;
+      next[layer.id] = { ...base, delay: stagger, dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+    });
+    setSettings(base); setAnimations(next); setSelected(["__root"]); setPlaying(false); setTimeout(() => setPlaying(true), 30);
+  };
+  const removeAnim = () => setAnimations(prev => { const next = { ...prev }; targets.forEach(id => delete next[id]); return next; });
+  const readFile = (file?: File) => { if (!file) return; if (!file.name.toLowerCase().endsWith(".svg") && file.type !== "image/svg+xml") { setError("Выберите файл в формате .svg"); return; } const r = new FileReader(); r.onload = () => load(String(r.result), file.name); r.readAsText(file); };
+  const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); readFile(e.dataTransfer.files[0]); };
+  const download = () => { const output = buildAnimated(svgText, effectiveAnimations, true); const blob = new Blob([output], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
+  const downloadGif = async () => {
+    if (!svgText || gifProgress !== null) return;
+    setGifProgress(0); setError("");
+    try {
+      const width = 400, height = 400, inset = 64, artworkSize = 272, fps = 20;
+      const duration = Math.min(6, Math.max(1, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay)));
+      const frames = Math.max(1, Math.round(duration * fps)); const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true }); if (!ctx) throw new Error("Браузер не поддерживает создание GIF");
+      const gif = GIFEncoder();
+      for (let frame = 0; frame < frames; frame++) {
+        const frozenSvg = buildAnimated(svgText, effectiveAnimations, false, frame / fps); const inner = new DOMParser().parseFromString(frozenSvg, "image/svg+xml").documentElement;
+        inner.setAttribute("x", String(inset)); inner.setAttribute("y", String(inset)); inner.setAttribute("width", String(artworkSize)); inner.setAttribute("height", String(artworkSize)); inner.setAttribute("preserveAspectRatio", "xMidYMid meet"); inner.setAttribute("overflow", "visible");
+        const sceneSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">${new XMLSerializer().serializeToString(inner)}</svg>`; const url = URL.createObjectURL(new Blob([sceneSvg], { type: "image/svg+xml" })); const image = new Image();
+        await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("Не удалось отрисовать кадр GIF")); image.src = url; });
+        ctx.clearRect(0, 0, width, height); ctx.drawImage(image, 0, 0, width, height); URL.revokeObjectURL(url);
+        const rgba = ctx.getImageData(0, 0, width, height).data;
+        const palette = quantize(rgba, 256, { format: "rgba4444", oneBitAlpha: 100, clearAlpha: true });
+        let transparentIndex = palette.findIndex(color => color.length > 3 && color[3] === 0);
+        if (transparentIndex < 0) { palette.unshift([0, 0, 0, 0]); transparentIndex = 0; if (palette.length > 256) palette.pop(); }
+        const index = applyPalette(rgba, palette, "rgba4444");
+        gif.writeFrame(index, width, height, { palette, delay: Math.round(1000 / fps), repeat: 0, transparent: true, transparentIndex, dispose: 2 });
+        setGifProgress(Math.round(((frame + 1) / frames) * 100)); if (frame % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      gif.finish(); const blob = new Blob([gif.bytes()], { type: "image/gif" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.gif`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
+    } catch (e) { setError(e instanceof Error ? e.message : "Не удалось создать GIF"); } finally { setGifProgress(null); }
+  };
+
+  return <main className="app-shell">
+    <header><div className="brand"><span className="brand-mark">M</span><span>Motion SVG</span><b>beta</b></div><div className="header-actions"><button className="ghost" onClick={() => fileRef.current?.click()}>＋ Новый SVG</button><button className="gif-export" onClick={downloadGif} disabled={!svgText || gifProgress !== null}>{gifProgress === null ? "Экспорт GIF" : `GIF ${gifProgress}%`} <span>↓</span></button><button className="export" onClick={download} disabled={!svgText}>Экспорт SVG <span>↓</span></button></div></header>
+    <section className="workspace">
+      <aside className="layers-panel panel"><div className="panel-title"><span>Слои</span><em>{layers.length}</em></div><button className={`layer root ${selected.includes("__root") ? "active" : ""}`} onClick={() => choose("__root", false)}><i>◇</i><span>Вся иконка</span>{animations.__root && <b>●</b>}</button><div className="tree-line" />{layers.map((l, i) => <button key={l.id} className={`layer ${selected.includes(l.id) ? "active" : ""}`} onClick={(e) => choose(l.id, e.metaKey || e.ctrlKey)}><i>{l.tag === "g" ? "⌗" : l.tag === "path" ? "⌁" : "○"}</i><span>{l.label}</span><small>{l.tag}</small>{animations[l.id] && <b>●</b>}</button>)}<div className="layer-hint">⌘ + клик — выбрать несколько</div></aside>
+      <section className="stage panel">
+        <div className="stage-toolbar"><div><button className="tool active">↖</button><button className="tool">✋</button><span className="divider"/><button className="zoom">−</button><span>Сцена 400 × 400</span><button className="zoom">＋</button></div><div><button className="tool" onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><button className="tool" onClick={() => { setPlaying(false); setTimeout(() => setPlaying(true), 30); }}>↺</button></div></div>
+        <div className={`canvas ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
+          <div className="grid"/><div className="artboard" data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/>
+          <button className="drop-note" onClick={() => fileRef.current?.click()}><span>↥</span><div><b>Перетащите SVG сюда</b><small>или нажмите, чтобы выбрать файл</small></div></button>
+          {error && <div className="error">{error}</div>}<input ref={fileRef} hidden type="file" accept=".svg,image/svg+xml" onChange={(e: ChangeEvent<HTMLInputElement>) => readFile(e.target.files?.[0])}/>
+        </div>
+        <div className="timeline"><button onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><span className="time">00:00.00</span><div className="track"><i style={{ left: `${Math.min(96, settings.delay / (settings.delay + settings.duration || 1) * 100)}%` }}/><b style={{ width: `${Math.max(12, settings.duration / 5 * 100)}%` }}/></div><span>{settings.duration.toFixed(2)}s</span></div>
+      </section>
+      <aside className="controls panel"><div className="panel-title"><span>Анимация</span><em>{appliedCount}</em></div><div className="selection-name"><small>Применить к</small><b>{selected.includes("__root") ? "Вся иконка" : selected.length > 1 ? `${selected.length} слоя` : layers.find(l => l.id === selected[0])?.label || "Слой"}</b></div><label>Готовые пресеты</label><div className="preset-list">{presets.map(p => <button key={p.id} className={settings.preset === p.id ? "active" : ""} onClick={() => applyPreset(p.id)}><i>{p.icon}</i><span><b>{p.name}</b><small>{p.note}</small></span><em>▶</em></button>)}</div><div className="section-break"><span>Ручная настройка</span></div><label>Стиль</label><div className="motion-grid">{motions.map(m => <button key={m.id} className={!settings.preset && settings.motion === m.id ? "active" : ""} onClick={() => setSettings(s => ({ ...s, preset: undefined, motion: m.id }))}><i>{m.icon}</i><span>{m.name}</span></button>)}</div>
+        {settings.preset === "bell" && <><label>Точка подвеса</label><div className="origin-grid">{[["0% 0%","↖"],["50% 0%","↑"],["100% 0%","↗"],["0% 50%","←"],["50% 50%","•"],["100% 50%","→"],["0% 100%","↙"],["50% 100%","↓"],["100% 100%","↘"]].map(([v,n]) => <button key={v} className={settings.origin === v ? "active" : ""} title={v} onClick={() => { setSettings(s => ({...s, origin:v})); setAnimations(prev => Object.fromEntries(Object.entries(prev).map(([id,a]) => [id, a.preset === "bell" ? {...a, origin:v} : a]))); }}>{n}</button>)}</div></>}
+        <div className="two"><Field label="Длительность" suffix="с" value={settings.duration} min={.1} step={.1} onChange={v => setSettings(s => ({...s, duration:v}))}/><Field label="Задержка" suffix="с" value={settings.delay} min={0} step={.1} onChange={v => setSettings(s => ({...s, delay:v}))}/></div>
+        <label>Характер движения</label><select value={settings.easing} onChange={e => setSettings(s => ({...s, easing:e.target.value}))}>{easingOptions.map(([n,v]) => <option key={v} value={v}>{n}</option>)}</select>
+        <div className="curve"><span/><i/><b/><em/></div>
+        {(settings.motion === "rotate" || settings.motion === "translate" || settings.motion === "bounce" || settings.motion === "scale") && <div className="two"><Field label={settings.motion === "rotate" ? "Угол" : settings.motion === "scale" ? "Сила" : "Амплитуда"} suffix={settings.motion === "rotate" ? "°" : "px"} value={settings.motion === "rotate" ? settings.angle : settings.distance} min={0} step={1} onChange={v => setSettings(s => settings.motion === "rotate" ? {...s, angle:v} : {...s, distance:v})}/><div><label>Повтор</label><select value={settings.iterations} onChange={e => setSettings(s => ({...s, iterations:e.target.value}))}><option value="infinite">Всегда</option><option value="1">1 раз</option><option value="2">2 раза</option><option value="3">3 раза</option></select></div></div>}
+        <label>Направление</label><div className="segmented">{[["normal","Вперёд"],["reverse","Назад"],["alternate","Туда-сюда"]].map(([v,n]) => <button key={v} className={settings.direction === v ? "active" : ""} onClick={() => setSettings(s => ({...s, direction:v as Anim["direction"]}))}>{n}</button>)}</div>
+        <button className="apply" onClick={apply}>Применить анимацию</button><button className="remove" onClick={removeAnim}>Убрать с выбранного</button>
+      </aside>
+    </section>
+    <footer><span><i className="status"/> SVG готов к работе</span><span>{layers.length} элементов · {Object.keys(effectiveAnimations).length} анимировано</span><span>Автономный SVG · CSS keyframes</span></footer>
+  </main>;
+}
+
+function Field({label,suffix,value,min,step,onChange}:{label:string;suffix:string;value:number;min:number;step:number;onChange:(v:number)=>void}) { return <div><label>{label}</label><div className="number"><input type="number" value={value} min={min} step={step} onChange={e => onChange(Math.max(min, Number(e.target.value)))}/><span>{suffix}</span></div></div> }
