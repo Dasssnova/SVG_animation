@@ -43,9 +43,11 @@ const alphaBayer8 = [
 function ditherGifAlpha(rgba: Uint8ClampedArray, width: number) {
   for (let pixel = 0; pixel < rgba.length / 4; pixel++) {
     const alphaIndex = pixel * 4 + 3; const alpha = rgba[alphaIndex];
-    if (alpha === 0 || alpha === 255) continue;
+    if (alpha <= 32) { rgba[alphaIndex] = 0; continue; }
+    if (alpha >= 232) { rgba[alphaIndex] = 255; continue; }
     const x = pixel % width, y = Math.floor(pixel / width);
-    rgba[alphaIndex] = alpha >= (alphaBayer8[(y % 8) * 8 + (x % 8)] + .5) * 4 ? 255 : 0;
+    const normalizedAlpha = (alpha - 32) * 255 / 200;
+    rgba[alphaIndex] = normalizedAlpha >= (alphaBayer8[(y % 8) * 8 + (x % 8)] + .5) * 4 ? 255 : 0;
   }
 }
 
