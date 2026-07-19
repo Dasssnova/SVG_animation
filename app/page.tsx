@@ -204,7 +204,6 @@ export default function Home() {
     <section className="workspace">
       <aside className="layers-panel panel"><div className="panel-title"><span>Слои</span><em>{layers.length}</em></div><button className={`layer root ${selected.includes("__root") ? "active" : ""}`} onClick={() => choose("__root", false)}><i>◇</i><span>Вся иконка</span>{animations.__root && <b>●</b>}</button><div className="tree-line" />{layers.map((l, i) => <button key={l.id} className={`layer ${selected.includes(l.id) ? "active" : ""}`} onClick={(e) => choose(l.id, e.metaKey || e.ctrlKey)}><i>{l.tag === "g" ? "⌗" : l.tag === "path" ? "⌁" : "○"}</i><span>{l.label}</span><small>{l.tag}</small>{animations[l.id] && <b>●</b>}</button>)}<div className="layer-hint">⌘ + клик — выбрать несколько</div></aside>
       <section className="stage panel">
-        <div className="stage-toolbar"><div><button className="tool active">↖</button><button className="tool">✋</button><span className="divider"/><button className="zoom">−</button><span>Сцена 400 × 400</span><button className="zoom">＋</button></div><div><button className="tool" onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><button className="tool" onClick={() => { setPlaying(false); setTimeout(() => setPlaying(true), 30); }}>↺</button></div></div>
         <div className={`canvas ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
           <div className="grid"/><div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/>
           <button className="drop-note" onClick={() => fileRef.current?.click()}><span>↥</span><div><b>Перетащите SVG сюда</b><small>или нажмите, чтобы выбрать файл</small></div></button>
@@ -226,7 +225,7 @@ export default function Home() {
         </div> : <p className="preset-empty">Выберите пресет, чтобы увидеть его настройки</p>}
       </aside>
     </section>
-    <footer><span><i className="status"/> SVG готов к работе</span><span>{layers.length} элементов · {Object.keys(effectiveAnimations).length} анимировано</span><span>Автономный SVG · CSS keyframes</span></footer>
+    <footer>© 2026 · Аниматор 1.0</footer>
   </main>;
 }
 
