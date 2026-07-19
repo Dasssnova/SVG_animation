@@ -200,7 +200,6 @@ export default function Home() {
   };
 
   return <main className="app-shell">
-    <header><div className="brand"><span className="brand-mark">M</span><span>Motion SVG</span><b>beta</b></div></header>
     <section className="workspace">
       <aside className="layers-panel panel"><div className="panel-title"><span>Слои</span><em>{layers.length}</em></div><button className={`layer root ${selected.includes("__root") ? "active" : ""}`} onClick={() => choose("__root", false)}><i>◇</i><span>Вся иконка</span>{animations.__root && <b>●</b>}</button><div className="tree-line" />{layers.map((l, i) => <button key={l.id} className={`layer ${selected.includes(l.id) ? "active" : ""}`} onClick={(e) => choose(l.id, e.metaKey || e.ctrlKey)}><i>{l.tag === "g" ? "⌗" : l.tag === "path" ? "⌁" : "○"}</i><span>{l.label}</span><small>{l.tag}</small>{animations[l.id] && <b>●</b>}</button>)}<div className="layer-hint">⌘ + клик — выбрать несколько</div></aside>
       <section className="stage panel">
