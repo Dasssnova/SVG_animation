@@ -4,7 +4,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "re
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 
 type Motion = "rotate" | "translate" | "fade" | "scale" | "bounce" | "draw";
-type Preset = "flyback" | "heartbeat" | "firework" | "sway" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
+type Preset = "rotate" | "fade" | "flyback" | "heartbeat" | "firework" | "sway" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
 type Anim = { motion: Motion; preset?: Preset; duration: number; delay: number; easing: string; iterations: string; distance: number; angle: number; direction: "normal" | "reverse" | "alternate"; dx?: number; dy?: number; origin?: string };
 type Layer = { id: string; label: string; tag: string };
 
@@ -16,12 +16,9 @@ const easingOptions = [
   ["Замедление", "cubic-bezier(0,0,.2,1)"], ["Мягкая пружина", "cubic-bezier(.34,1.56,.64,1)"],
   ["Ровно", "linear"],
 ];
-const motions: { id: Motion; icon: string; name: string }[] = [
-  { id: "rotate", icon: "↻", name: "Поворот" }, { id: "translate", icon: "↔", name: "Сдвиг" },
-  { id: "fade", icon: "◐", name: "Исчезание" }, { id: "scale", icon: "⤢", name: "Масштаб" },
-  { id: "bounce", icon: "⌁", name: "Прыжок" }, { id: "draw", icon: "✎", name: "Контур" },
-];
 const presets: { id: Preset; icon: string; name: string; note: string }[] = [
+  { id: "rotate", icon: "↻", name: "Поворот", note: "Вращение вокруг центра" },
+  { id: "fade", icon: "◐", name: "Исчезновение", note: "Плавное появление и скрытие" },
   { id: "flyback", icon: "⇢", name: "Вылет и возврат", note: "Стоп · вылет назад" },
   { id: "heartbeat", icon: "♥", name: "Биение сердца", note: "Двойной пульс" },
   { id: "firework", icon: "✦", name: "Фейерверк", note: "Из центра наружу" },
@@ -64,10 +61,12 @@ function prepareSvg(raw: string) {
 }
 
 function keyframes(a: Anim) {
+  if (a.preset === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${a.angle}deg)}}`;
+  if (a.preset === "fade") return `0%,100%{opacity:1}50%{opacity:0}}`;
   if (a.preset === "flyback") return `0%{transform:translateX(-${a.distance * 1.4}px);opacity:0}22%{transform:translateX(0);opacity:1}52%{transform:translateX(0);opacity:1}78%,100%{transform:translateX(${a.distance * 1.4}px);opacity:0}}`;
   if (a.preset === "heartbeat") return `0%,28%,100%{transform:scale(1)}10%{transform:scale(1.16)}18%{transform:scale(.96)}24%{transform:scale(1.1)}}`;
   if (a.preset === "firework") return `0%,100%{transform:scale(1)}12%{transform:scale(.92)}28%{transform:scale(1.08)}45%{transform:scale(1)}}`;
-  if (a.preset === "sway") return `0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}`;
+  if (a.preset === "sway") return `0%,100%{transform:rotate(-${a.angle / 2}deg)}50%{transform:rotate(${a.angle / 2}deg)}}`;
   if (a.preset === "liquid") return `0%{transform:translateY(${a.distance * 2.4}px) scaleY(.12);opacity:0}18%{opacity:.45}72%{transform:translateY(-3px) scaleY(1.04);opacity:1}88%,100%{transform:translateY(0) scaleY(1);opacity:1}}`;
   if (a.preset === "jump") return `0%,100%{transform:translateY(0)}38%{transform:translateY(-${a.distance}px)}55%{transform:translateY(3px) scaleY(.94)}68%{transform:translateY(-${a.distance * .28}px)}82%{transform:translateY(0)}}`;
   if (a.preset === "fadeSequence") return `0%,15%{opacity:0;transform:scale(.88)}38%,68%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.96)}}`;
@@ -123,6 +122,7 @@ export default function Home() {
   const [svgText, setSvgText] = useState(""); const [layers, setLayers] = useState<Layer[]>([]);
   const [selected, setSelected] = useState<string[]>([]); const [animations, setAnimations] = useState<Record<string, Anim>>({});
   const [settings, setSettings] = useState<Anim>(defaults); const [playing, setPlaying] = useState(true);
+  const [sceneBackground, setSceneBackground] = useState<"light" | "dark">("light");
   const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("icon");
   const [gifProgress, setGifProgress] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -133,15 +133,22 @@ export default function Home() {
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
   const appliedCount = Object.keys(animations).length;
+  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
 
-  const choose = (id: string, additive: boolean) => { setSelected(prev => additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev.filter(x => x !== "__root"), id]) : [id]); const a = animations[id]; if (a) setSettings(a); };
-  const apply = () => setAnimations(prev => { if (targets.includes("__root")) return Object.fromEntries(layers.map(layer => [layer.id, { ...settings }])); const next = { ...prev }; targets.forEach(id => { next[id] = { ...settings }; }); return next; });
+  const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
+  const choose = (id: string, additive: boolean) => { setSelected(prev => additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev.filter(x => x !== "__root"), id]) : [id]); const a = id === "__root" ? Object.values(animations)[0] : animations[id]; setSettings(a || defaults); };
+  const updateAnimation = (patch: Partial<Anim>) => {
+    const updated = { ...settings, ...patch }; setSettings(updated);
+    setAnimations(prev => { const next = { ...prev }; const isRoot = targets.includes("__root"); const ids = isRoot ? Object.keys(next) : targets; const delayDelta = patch.delay === undefined ? 0 : patch.delay - settings.delay; ids.forEach(id => { if (next[id]) next[id] = { ...next[id], ...patch, ...(isRoot && patch.delay !== undefined ? { delay: Math.max(0, next[id].delay + delayDelta) } : {}) }; }); return next; }); restartPreview();
+  };
   const applyPreset = (preset: Preset) => {
     const recipe: Record<Preset, Partial<Anim>> = {
+      rotate: { motion: "rotate", duration: 1.8, easing: "linear", angle: 360, iterations: "infinite" },
+      fade: { motion: "fade", duration: 1.8, easing: "ease-in-out", iterations: "infinite" },
       flyback: { duration: 2.4, easing: "cubic-bezier(.65,0,.35,1)", distance: 42 },
       heartbeat: { duration: 1.35, easing: "cubic-bezier(.22,.8,.3,1)", distance: 18 },
       firework: { duration: 2.2, easing: "cubic-bezier(.18,.75,.25,1)", distance: 72 },
-      sway: { duration: 2.8, easing: "ease-in-out", distance: 10 },
+      sway: { duration: 2.8, easing: "ease-in-out", angle: 10 },
       liquid: { duration: 2.6, easing: "cubic-bezier(.2,.75,.3,1)", distance: 48, iterations: "1" },
       jump: { duration: 1.3, easing: "cubic-bezier(.3,.8,.35,1)", distance: 22 },
       fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
@@ -151,18 +158,17 @@ export default function Home() {
       drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw" },
       drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw" },
     };
-    const base = { ...settings, ...recipe[preset], preset };
-    const next: Record<string, Anim> = {};
+    const base = { ...defaults, ...recipe[preset], preset };
     const count = Math.max(layers.length, 1);
-    layers.forEach((layer, i) => {
+    setAnimations(prev => { const next: Record<string, Anim> = targets.includes("__root") ? {} : { ...prev }; const targetLayers = targets.includes("__root") ? layers : layers.filter(layer => targets.includes(layer.id)); targetLayers.forEach((layer) => {
+      const i = layers.findIndex(item => item.id === layer.id);
       const angle = -Math.PI / 2 + (Math.PI * 2 * i) / count;
       const radius = 48 + (i % 3) * 16;
       const stagger = preset === "fadeSequence" ? i * .22 : preset === "liquid" ? i * .035 : 0;
       next[layer.id] = { ...base, delay: stagger, dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
-    });
-    setSettings(base); setAnimations(next); setSelected(["__root"]); setPlaying(false); setTimeout(() => setPlaying(true), 30);
+    }); return next; });
+    setSettings(base); restartPreview();
   };
-  const removeAnim = () => setAnimations(prev => { const next = { ...prev }; targets.forEach(id => delete next[id]); return next; });
   const readFile = (file?: File) => { if (!file) return; if (!file.name.toLowerCase().endsWith(".svg") && file.type !== "image/svg+xml") { setError("Выберите файл в формате .svg"); return; } const r = new FileReader(); r.onload = () => load(String(r.result), file.name); r.readAsText(file); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); readFile(e.dataTransfer.files[0]); };
   const download = () => { const output = buildAnimated(svgText, effectiveAnimations, true); const blob = new Blob([output], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
@@ -200,20 +206,24 @@ export default function Home() {
       <section className="stage panel">
         <div className="stage-toolbar"><div><button className="tool active">↖</button><button className="tool">✋</button><span className="divider"/><button className="zoom">−</button><span>Сцена 400 × 400</span><button className="zoom">＋</button></div><div><button className="tool" onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><button className="tool" onClick={() => { setPlaying(false); setTimeout(() => setPlaying(true), 30); }}>↺</button></div></div>
         <div className={`canvas ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
-          <div className="grid"/><div className="artboard" data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/>
+          <div className="grid"/><div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/>
           <button className="drop-note" onClick={() => fileRef.current?.click()}><span>↥</span><div><b>Перетащите SVG сюда</b><small>или нажмите, чтобы выбрать файл</small></div></button>
           {error && <div className="error">{error}</div>}<input ref={fileRef} hidden type="file" accept=".svg,image/svg+xml" onChange={(e: ChangeEvent<HTMLInputElement>) => readFile(e.target.files?.[0])}/>
         </div>
         <div className="timeline"><button onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><span className="time">00:00.00</span><div className="track"><i style={{ left: `${Math.min(96, settings.delay / (settings.delay + settings.duration || 1) * 100)}%` }}/><b style={{ width: `${Math.max(12, settings.duration / 5 * 100)}%` }}/></div><span>{settings.duration.toFixed(2)}s</span></div>
       </section>
-      <aside className="controls panel"><div className="panel-title"><span>Анимация</span><em>{appliedCount}</em></div><div className="selection-name"><small>Применить к</small><b>{selected.includes("__root") ? "Вся иконка" : selected.length > 1 ? `${selected.length} слоя` : layers.find(l => l.id === selected[0])?.label || "Слой"}</b></div><label>Готовые пресеты</label><div className="preset-list">{presets.map(p => <button key={p.id} className={settings.preset === p.id ? "active" : ""} onClick={() => applyPreset(p.id)}><i>{p.icon}</i><span><b>{p.name}</b><small>{p.note}</small></span><em>▶</em></button>)}</div><div className="section-break"><span>Ручная настройка</span></div><label>Стиль</label><div className="motion-grid">{motions.map(m => <button key={m.id} className={!settings.preset && settings.motion === m.id ? "active" : ""} onClick={() => setSettings(s => ({ ...s, preset: undefined, motion: m.id }))}><i>{m.icon}</i><span>{m.name}</span></button>)}</div>
-        {settings.preset === "bell" && <><label>Точка подвеса</label><div className="origin-grid">{[["0% 0%","↖"],["50% 0%","↑"],["100% 0%","↗"],["0% 50%","←"],["50% 50%","•"],["100% 50%","→"],["0% 100%","↙"],["50% 100%","↓"],["100% 100%","↘"]].map(([v,n]) => <button key={v} className={settings.origin === v ? "active" : ""} title={v} onClick={() => { setSettings(s => ({...s, origin:v})); setAnimations(prev => Object.fromEntries(Object.entries(prev).map(([id,a]) => [id, a.preset === "bell" ? {...a, origin:v} : a]))); }}>{n}</button>)}</div></>}
-        <div className="two"><Field label="Длительность" suffix="с" value={settings.duration} min={.1} step={.1} onChange={v => setSettings(s => ({...s, duration:v}))}/><Field label="Задержка" suffix="с" value={settings.delay} min={0} step={.1} onChange={v => setSettings(s => ({...s, delay:v}))}/></div>
-        <label>Характер движения</label><select value={settings.easing} onChange={e => setSettings(s => ({...s, easing:e.target.value}))}>{easingOptions.map(([n,v]) => <option key={v} value={v}>{n}</option>)}</select>
-        <div className="curve"><span/><i/><b/><em/></div>
-        {(settings.motion === "rotate" || settings.motion === "translate" || settings.motion === "bounce" || settings.motion === "scale") && <div className="two"><Field label={settings.motion === "rotate" ? "Угол" : settings.motion === "scale" ? "Сила" : "Амплитуда"} suffix={settings.motion === "rotate" ? "°" : "px"} value={settings.motion === "rotate" ? settings.angle : settings.distance} min={0} step={1} onChange={v => setSettings(s => settings.motion === "rotate" ? {...s, angle:v} : {...s, distance:v})}/><div><label>Повтор</label><select value={settings.iterations} onChange={e => setSettings(s => ({...s, iterations:e.target.value}))}><option value="infinite">Всегда</option><option value="1">1 раз</option><option value="2">2 раза</option><option value="3">3 раза</option></select></div></div>}
-        <label>Направление</label><div className="segmented">{[["normal","Вперёд"],["reverse","Назад"],["alternate","Туда-сюда"]].map(([v,n]) => <button key={v} className={settings.direction === v ? "active" : ""} onClick={() => setSettings(s => ({...s, direction:v as Anim["direction"]}))}>{n}</button>)}</div>
-        <button className="apply" onClick={apply}>Применить анимацию</button><button className="remove" onClick={removeAnim}>Убрать с выбранного</button>
+      <aside className="controls panel"><div className="panel-title"><span>Пресеты</span><em>{appliedCount}</em></div><div className="selection-name"><small>Выбранная анимация</small><b>{selected.includes("__root") ? "Вся иконка" : selected.length > 1 ? `${selected.length} слоя` : layers.find(l => l.id === selected[0])?.label || "Слой"}</b></div>
+        <label>Фон сцены</label><div className="background-picker"><button className={sceneBackground === "light" ? "active" : ""} onClick={() => setSceneBackground("light")}><i className="light-swatch"/>Светло-серый</button><button className={sceneBackground === "dark" ? "active" : ""} onClick={() => setSceneBackground("dark")}><i className="dark-swatch"/>Тёмно-серый</button></div>
+        <label>Пресеты анимации</label><div className="preset-list">{presets.map(p => <button key={p.id} className={settings.preset === p.id ? "active" : ""} onClick={() => applyPreset(p.id)}><i>{p.icon}</i><span><b>{p.name}</b><small>{p.note}</small></span><em>▶</em></button>)}</div>
+        {settings.preset ? <div className="preset-settings"><div className="section-break"><span>Настройки: {presets.find(p => p.id === settings.preset)?.name}</span></div>
+          {settings.preset === "bell" && <><label>Точка подвеса</label><div className="origin-grid">{[["0% 0%","↖"],["50% 0%","↑"],["100% 0%","↗"],["0% 50%","←"],["50% 50%","•"],["100% 50%","→"],["0% 100%","↙"],["50% 100%","↓"],["100% 100%","↘"]].map(([v,n]) => <button key={v} className={settings.origin === v ? "active" : ""} title={v} onClick={() => updateAnimation({origin:v})}>{n}</button>)}</div></>}
+          <div className="two"><Field label="Длительность" suffix="с" value={settings.duration} min={.1} step={.1} onChange={v => updateAnimation({duration:v})}/><Field label="Задержка" suffix="с" value={settings.delay} min={0} step={.1} onChange={v => updateAnimation({delay:v})}/></div>
+          <label>Характер движения</label><select value={settings.easing} onChange={e => updateAnimation({easing:e.target.value})}>{easingOptions.map(([n,v]) => <option key={v} value={v}>{n}</option>)}</select><div className="curve"><span/><i/><b/><em/></div>
+          {distancePresets.includes(settings.preset) && <div className="single-setting"><Field label="Амплитуда" suffix="px" value={settings.distance} min={0} step={1} onChange={v => updateAnimation({distance:v})}/></div>}
+          {(settings.preset === "rotate" || settings.preset === "bell" || settings.preset === "sway") && <div className="single-setting"><Field label={settings.preset === "bell" ? "Размах" : "Угол"} suffix="°" value={settings.angle} min={0} step={1} onChange={v => updateAnimation({angle:v})}/></div>}
+          <div className="two"><div><label>Повтор</label><select value={settings.iterations} onChange={e => updateAnimation({iterations:e.target.value})}><option value="infinite">Всегда</option><option value="1">1 раз</option><option value="2">2 раза</option><option value="3">3 раза</option></select></div>{(settings.preset === "rotate" || settings.preset === "drawForward" || settings.preset === "drawReverse") && <div><label>Направление</label><select value={settings.direction} onChange={e => updateAnimation({direction:e.target.value as Anim["direction"]})}><option value="normal">Вперёд</option><option value="reverse">Назад</option><option value="alternate">Туда-сюда</option></select></div>}</div>
+          <p className="instant-note">Изменения применяются сразу</p>
+        </div> : <p className="preset-empty">Выберите пресет, чтобы увидеть его настройки</p>}
       </aside>
     </section>
     <footer><span><i className="status"/> SVG готов к работе</span><span>{layers.length} элементов · {Object.keys(effectiveAnimations).length} анимировано</span><span>Автономный SVG · CSS keyframes</span></footer>
