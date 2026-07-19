@@ -200,7 +200,7 @@ export default function Home() {
   };
 
   return <main className="app-shell">
-    <header><div className="brand"><span className="brand-mark">M</span><span>Motion SVG</span><b>beta</b></div><div className="header-actions"><button className="ghost" onClick={() => fileRef.current?.click()}>＋ Новый SVG</button><button className="gif-export" onClick={downloadGif} disabled={!svgText || gifProgress !== null}>{gifProgress === null ? "Экспорт GIF" : `GIF ${gifProgress}%`} <span>↓</span></button><button className="export" onClick={download} disabled={!svgText}>Экспорт SVG <span>↓</span></button></div></header>
+    <header><div className="brand"><span className="brand-mark">M</span><span>Motion SVG</span><b>beta</b></div></header>
     <section className="workspace">
       <aside className="layers-panel panel"><div className="panel-title"><span>Слои</span><em>{layers.length}</em></div><button className={`layer root ${selected.includes("__root") ? "active" : ""}`} onClick={() => choose("__root", false)}><i>◇</i><span>Вся иконка</span>{animations.__root && <b>●</b>}</button><div className="tree-line" />{layers.map((l, i) => <button key={l.id} className={`layer ${selected.includes(l.id) ? "active" : ""}`} onClick={(e) => choose(l.id, e.metaKey || e.ctrlKey)}><i>{l.tag === "g" ? "⌗" : l.tag === "path" ? "⌁" : "○"}</i><span>{l.label}</span><small>{l.tag}</small>{animations[l.id] && <b>●</b>}</button>)}<div className="layer-hint">⌘ + клик — выбрать несколько</div></aside>
       <section className="stage panel">
@@ -223,6 +223,7 @@ export default function Home() {
           <div className="two"><div><label>Повтор</label><select value={settings.iterations} onChange={e => updateAnimation({iterations:e.target.value})}><option value="infinite">Всегда</option><option value="1">1 раз</option><option value="2">2 раза</option><option value="3">3 раза</option></select></div>{(settings.preset === "rotate" || settings.preset === "drawForward" || settings.preset === "drawReverse") && <div><label>Направление</label><select value={settings.direction} onChange={e => updateAnimation({direction:e.target.value as Anim["direction"]})}><option value="normal">Вперёд</option><option value="reverse">Назад</option><option value="alternate">Туда-сюда</option></select></div>}</div>
           <p className="instant-note">Изменения применяются сразу</p>
         </div> : <p className="preset-empty">Выберите пресет, чтобы увидеть его настройки</p>}
+        <div className="export-actions"><button className="gif-export" onClick={downloadGif} disabled={!svgText || gifProgress !== null}>{gifProgress === null ? "Экспорт GIF" : `GIF ${gifProgress}%`} <span>↓</span></button><button className="export" onClick={download} disabled={!svgText}>Экспорт SVG <span>↓</span></button></div>
       </aside>
     </section>
     <footer>© 2026 · Аниматор 1.0</footer>
