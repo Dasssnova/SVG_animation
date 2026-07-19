@@ -176,7 +176,7 @@ export default function Home() {
     if (!svgText || gifProgress !== null) return;
     setGifProgress(0); setError("");
     try {
-      const width = 400, height = 400, inset = 64, artworkSize = 272, fps = 20;
+      const width = 400, height = 400, inset = 64, artworkSize = 272, fps = 50;
       const duration = Math.min(6, Math.max(1, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay)));
       const frames = Math.max(1, Math.round(duration * fps)); const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext("2d", { willReadFrequently: true }); if (!ctx) throw new Error("Браузер не поддерживает создание GIF");
@@ -192,8 +192,8 @@ export default function Home() {
         let transparentIndex = palette.findIndex(color => color.length > 3 && color[3] === 0);
         if (transparentIndex < 0) { palette.unshift([0, 0, 0, 0]); transparentIndex = 0; if (palette.length > 256) palette.pop(); }
         const index = applyPalette(rgba, palette, "rgba4444");
-        gif.writeFrame(index, width, height, { palette, delay: Math.round(1000 / fps), repeat: 0, transparent: true, transparentIndex, dispose: 2 });
-        setGifProgress(Math.round(((frame + 1) / frames) * 100)); if (frame % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+        gif.writeFrame(index, width, height, { palette, delay: 20, repeat: 0, transparent: true, transparentIndex, dispose: 2 });
+        setGifProgress(Math.round(((frame + 1) / frames) * 100)); if (frame % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
       }
       gif.finish(); const blob = new Blob([gif.bytes()], { type: "image/gif" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.gif`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
     } catch (e) { setError(e instanceof Error ? e.message : "Не удалось создать GIF"); } finally { setGifProgress(null); }
