@@ -33,6 +33,22 @@ const presets: { id: Preset; icon: string; name: string; note: string }[] = [
   { id: "drawReverse", icon: "↜", name: "Линия: назад", note: "От конца к началу" },
 ];
 
+const alphaBayer8 = [
+  0,48,12,60,3,51,15,63, 32,16,44,28,35,19,47,31,
+  8,56,4,52,11,59,7,55, 40,24,36,20,43,27,39,23,
+  2,50,14,62,1,49,13,61, 34,18,46,30,33,17,45,29,
+  10,58,6,54,9,57,5,53, 42,26,38,22,41,25,37,21,
+];
+
+function ditherGifAlpha(rgba: Uint8ClampedArray, width: number) {
+  for (let pixel = 0; pixel < rgba.length / 4; pixel++) {
+    const alphaIndex = pixel * 4 + 3; const alpha = rgba[alphaIndex];
+    if (alpha === 0 || alpha === 255) continue;
+    const x = pixel % width, y = Math.floor(pixel / width);
+    rgba[alphaIndex] = alpha >= (alphaBayer8[(y % 8) * 8 + (x % 8)] + .5) * 4 ? 255 : 0;
+  }
+}
+
 function prepareSvg(raw: string) {
   const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
   if (doc.querySelector("parsererror") || doc.documentElement.tagName.toLowerCase() !== "svg") throw new Error("Это невалидный SVG-файл");
@@ -187,8 +203,8 @@ export default function Home() {
         const sceneSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">${new XMLSerializer().serializeToString(inner)}</svg>`; const url = URL.createObjectURL(new Blob([sceneSvg], { type: "image/svg+xml" })); const image = new Image();
         await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("Не удалось отрисовать кадр GIF")); image.src = url; });
         ctx.clearRect(0, 0, width, height); ctx.drawImage(image, 0, 0, width, height); URL.revokeObjectURL(url);
-        const rgba = ctx.getImageData(0, 0, width, height).data;
-        const palette = quantize(rgba, 256, { format: "rgba4444", oneBitAlpha: 100, clearAlpha: true });
+        const rgba = ctx.getImageData(0, 0, width, height).data; ditherGifAlpha(rgba, width);
+        const palette = quantize(rgba, 256, { format: "rgba4444", oneBitAlpha: 1, clearAlpha: true });
         let transparentIndex = palette.findIndex(color => color.length > 3 && color[3] === 0);
         if (transparentIndex < 0) { palette.unshift([0, 0, 0, 0]); transparentIndex = 0; if (palette.length > 256) palette.pop(); }
         const index = applyPalette(rgba, palette, "rgba4444");
