@@ -18,6 +18,7 @@ test("server-renders Motion SVG editor", async () => {
   assert.match(html, /<title>Motion SVG/);
   assert.match(html, /Motion SVG/);
   assert.match(html, /Экспорт SVG/);
-  assert.match(html, /Пресеты анимации/);
+  assert.match(html, /Поворот/);
+  assert.doesNotMatch(html, /Пресеты анимации/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
