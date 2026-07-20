@@ -124,9 +124,8 @@ function keyframes(a: Anim) {
   if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
   if (a.preset === "drawForward" || a.preset === "drawReverse") {
     const point = Math.min(99, Math.max(0, a.drawPoint || 0));
-    const endOffset = -point;
-    const startOffset = endOffset + (a.preset === "drawReverse" ? -100 : 100);
-    return `0%{stroke-dashoffset:${startOffset}}100%{stroke-dashoffset:${endOffset}}}`;
+    if (a.preset === "drawReverse") return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point}}100%{stroke-dasharray:100 0;stroke-dashoffset:${100 - point}}}`;
+    return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point}}100%{stroke-dasharray:100 0;stroke-dashoffset:${-point}}}`;
   }
   const d = a.distance, angle = a.angle;
   if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
@@ -148,7 +147,7 @@ function buildAnimated(svgText: string, animations: Record<string, Anim>, playin
     const isDraw = a.motion === "draw" || a.preset === "drawForward" || a.preset === "drawReverse";
     if (isDraw) doc.querySelector(`[data-motion-id="${id}"]`)?.querySelectorAll("path,line,polyline,polygon,circle,rect").forEach(el => el.setAttribute("pathLength", "100"));
     const target = isDraw ? `[data-motion-id="${id}"],[data-motion-id="${id}"] path,[data-motion-id="${id}"] line,[data-motion-id="${id}"] polyline,[data-motion-id="${id}"] polygon,[data-motion-id="${id}"] circle,[data-motion-id="${id}"] rect` : `[data-motion-id="${id}"]`;
-    const draw = isDraw ? "stroke-dasharray:100;" : "";
+    const draw = isDraw ? "stroke-dasharray:0 100;" : "";
     const delay = seekSeconds === undefined ? a.delay : a.delay - seekSeconds;
     rules.push(`${target}{${draw}transform-box:fill-box;transform-origin:${a.origin || "center"};animation:${name} ${a.duration}s ${a.easing} ${delay}s ${a.iterations} ${a.direction};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
   });
