@@ -245,4 +245,7 @@ export default function Home() {
   </main>;
 }
 
-function Field({label,suffix,value,min,step,onChange}:{label:string;suffix:string;value:number;min:number;step:number;onChange:(v:number)=>void}) { return <div><label>{label}</label><div className="number"><input type="number" value={value} min={min} step={step} onChange={e => onChange(Math.max(min, Number(e.target.value)))}/><span>{suffix}</span></div></div> }
+function Field({label,suffix,value,min,step,onChange}:{label:string;suffix:string;value:number;min:number;step:number;onChange:(v:number)=>void}) {
+  const displayValue = String(Number.isFinite(value) ? Number(value) : min);
+  return <div><label>{label}</label><div className="number"><input type="number" value={displayValue} min={min} step={step} onChange={e => onChange(Math.max(min, Number(e.target.value)))} onBlur={e => { e.currentTarget.value = displayValue; }}/><span>{suffix}</span></div></div>;
+}
