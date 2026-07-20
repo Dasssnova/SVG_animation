@@ -150,7 +150,6 @@ export default function Home() {
   const targets = selected.length ? selected : ["__root"];
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
-  const appliedCount = Object.keys(animations).length;
   const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
 
   const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
@@ -229,7 +228,7 @@ export default function Home() {
         </div>
         <div className="timeline"><button onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><span className="time">00:00.00</span><div className="track"><i style={{ left: `${Math.min(96, settings.delay / (settings.delay + settings.duration || 1) * 100)}%` }}/><b style={{ width: `${Math.max(12, settings.duration / 5 * 100)}%` }}/></div><span>{settings.duration.toFixed(2)}s</span></div>
       </section>
-      <aside className="controls panel"><div className="panel-title"><span>Пресеты</span><em>{appliedCount}</em></div><div className="controls-scroll">
+      <aside className="controls panel"><div className="panel-title"><span>Пресеты</span></div><div className="controls-scroll">
         <div className="preset-list">{presets.map(p => <button key={p.id} className={settings.preset === p.id ? "active" : ""} onClick={() => applyPreset(p.id)}><i>{p.icon}</i><span><b>{p.name}</b><small>{p.note}</small></span><em>▶</em></button>)}</div>
         {settings.preset ? <div className="preset-settings"><div className="section-break"><span>Настройки: {presets.find(p => p.id === settings.preset)?.name}</span></div>
           {settings.preset === "bell" && <><label>Точка подвеса</label><div className="origin-grid">{[["0% 0%","↖"],["50% 0%","↑"],["100% 0%","↗"],["0% 50%","←"],["50% 50%","•"],["100% 50%","→"],["0% 100%","↙"],["50% 100%","↓"],["100% 100%","↘"]].map(([v,n]) => <button key={v} className={settings.origin === v ? "active" : ""} title={v} onClick={() => updateAnimation({origin:v})}>{n}</button>)}</div></>}
