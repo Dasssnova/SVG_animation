@@ -5,7 +5,7 @@ import { GIFEncoder, applyPalette, quantize } from "gifenc";
 
 type Motion = "rotate" | "translate" | "fade" | "scale" | "bounce" | "draw";
 type Preset = "rotate" | "fade" | "flyback" | "heartbeat" | "firework" | "sway" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
-type Anim = { motion: Motion; preset?: Preset; duration: number; delay: number; easing: string; iterations: string; distance: number; angle: number; direction: "normal" | "reverse" | "alternate"; dx?: number; dy?: number; origin?: string; particleSize?: number; particleColor?: string; drawStart?: "start" | "end" };
+type Anim = { motion: Motion; preset?: Preset; duration: number; delay: number; easing: string; iterations: string; distance: number; angle: number; direction: "normal" | "reverse" | "alternate"; dx?: number; dy?: number; origin?: string; particleSize?: number; particleColor?: string; drawPoint?: number };
 type Layer = { id: string; label: string; tag: string };
 
 const demoSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.9502 3.99817C17.5413 3.99818 18.1268 4.11467 18.6729 4.34094C19.2188 4.56718 19.715 4.89858 20.1328 5.31653V5.3175C20.5509 5.7354 20.8831 6.23136 21.1094 6.77747C21.3356 7.32354 21.4521 7.90903 21.4521 8.50012C21.4521 9.0912 21.3356 9.67671 21.1094 10.2228C20.8831 10.7688 20.5509 11.2649 20.1328 11.6827L20.127 11.6896L12 19.963L3.87402 11.6896L3.86719 11.6827C3.02312 10.8386 2.54886 9.69385 2.54883 8.50012C2.54883 7.30641 3.02317 6.16164 3.86719 5.3175C4.71127 4.47342 5.8561 3.99923 7.0498 3.99915C8.24362 3.99915 9.38924 4.47335 10.2334 5.3175L11.293 6.37708C11.6835 6.76757 12.3165 6.76752 12.707 6.37708L13.7676 5.3175V5.31653C14.1854 4.89859 14.6816 4.56717 15.2275 4.34094C15.7736 4.11466 16.3591 3.99817 16.9502 3.99817Z" stroke="#7C828E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -91,7 +91,7 @@ function keyframes(a: Anim) {
   if (a.preset === "swayY") return `0%,100%{transform:translateY(-${a.distance}px)}50%{transform:translateY(${a.distance}px)}}`;
   if (a.preset === "swayX") return `0%,100%{transform:translateX(-${a.distance}px)}50%{transform:translateX(${a.distance}px)}}`;
   if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
-  if (a.preset === "drawForward" || a.preset === "drawReverse") return `0%{stroke-dashoffset:${a.drawStart === "end" ? -100 : 100}}100%{stroke-dashoffset:0}}`;
+  if (a.preset === "drawForward" || a.preset === "drawReverse") { const remaining = 100 - Math.min(99, Math.max(0, a.drawPoint || 0)); return `0%{stroke-dashoffset:${a.preset === "drawReverse" ? -remaining : remaining}}100%{stroke-dashoffset:0}}`; }
   const d = a.distance, angle = a.angle;
   if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
   if (a.motion === "translate") return `0%,100%{transform:translateX(0)}50%{transform:translateX(${d}px)}}`;
@@ -173,8 +173,8 @@ export default function Home() {
       swayX: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
       swayY: { duration: 2.4, easing: "ease-in-out", distance: 7 },
       bell: { duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 100, origin: "50% 0%", iterations: "infinite" },
-      drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawStart: "start" },
-      drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawStart: "end" },
+      drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
+      drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
     };
     const base = { ...defaults, ...recipe[preset], preset };
     const count = Math.max(layers.length, 1);
@@ -237,7 +237,7 @@ export default function Home() {
           {settings.preset === "firework" && <div className="two firework-settings"><Field label="Размер полосок" suffix="px" value={settings.particleSize || 10} min={1} step={1} onChange={v => updateAnimation({particleSize:v})}/><div><label>Цвет частиц</label><div className="color-field"><input type="color" value={settings.particleColor || "#ffffff"} onChange={e => updateAnimation({particleColor:e.target.value})}/><span>{settings.particleColor || "#ffffff"}</span></div></div></div>}
           {distancePresets.includes(settings.preset) && <div className="single-setting"><Field label="Амплитуда" suffix="px" value={settings.distance} min={0} step={1} onChange={v => updateAnimation({distance:v})}/></div>}
           {(settings.preset === "rotate" || settings.preset === "bell") && <div className="single-setting"><Field label={settings.preset === "bell" ? "Размах" : "Угол"} suffix="°" value={settings.angle} min={0} step={1} onChange={v => updateAnimation({angle:v})}/></div>}
-          {(settings.preset === "drawForward" || settings.preset === "drawReverse") && <div className="setting-group"><label>Точка появления</label><select value={settings.drawStart || (settings.preset === "drawReverse" ? "end" : "start")} onChange={e => updateAnimation({drawStart:e.target.value as Anim["drawStart"]})}><option value="start">Начало линии</option><option value="end">Конец линии</option></select></div>}
+          {(settings.preset === "drawForward" || settings.preset === "drawReverse") && <div className="single-setting"><Field label="Точка появления" suffix="px" value={settings.drawPoint || 0} min={0} max={99} step={1} onChange={v => updateAnimation({drawPoint:v})}/></div>}
           <div className="two"><div><label>Повтор</label><select value={settings.iterations} onChange={e => updateAnimation({iterations:e.target.value})}><option value="infinite">Всегда</option><option value="1">1 раз</option><option value="2">2 раза</option><option value="3">3 раза</option></select></div>{settings.preset === "rotate" && <div><label>Направление</label><select value={settings.direction} onChange={e => updateAnimation({direction:e.target.value as Anim["direction"]})}><option value="normal">Вперёд</option><option value="reverse">Назад</option><option value="alternate">Туда-сюда</option></select></div>}</div>
         </div> : null}</div>
         <div className="export-actions"><button className="gif-export" onClick={downloadGif} disabled={!svgText || gifProgress !== null}>{gifProgress === null ? "Экспорт GIF" : `GIF ${gifProgress}%`} <span>↓</span></button><button className="export" onClick={download} disabled={!svgText}>Экспорт SVG <span>↓</span></button></div>
@@ -247,7 +247,7 @@ export default function Home() {
   </main>;
 }
 
-function Field({label,suffix,value,min,step,onChange}:{label:string;suffix:string;value:number;min:number;step:number;onChange:(v:number)=>void}) {
+function Field({label,suffix,value,min,max,step,onChange}:{label:string;suffix:string;value:number;min:number;max?:number;step:number;onChange:(v:number)=>void}) {
   const displayValue = String(Number.isFinite(value) ? Number(value) : min);
-  return <div><label>{label}</label><div className="number"><input type="number" value={displayValue} min={min} step={step} onChange={e => onChange(Math.max(min, Number(e.target.value)))} onBlur={e => { e.currentTarget.value = displayValue; }}/><span>{suffix}</span></div></div>;
+  return <div><label>{label}</label><div className="number"><input type="number" value={displayValue} min={min} max={max} step={step} onChange={e => onChange(Math.min(max ?? Infinity, Math.max(min, Number(e.target.value))))} onBlur={e => { e.currentTarget.value = displayValue; }}/><span>{suffix}</span></div></div>;
 }
