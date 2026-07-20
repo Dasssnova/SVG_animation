@@ -37,3 +37,4 @@ footer{background:#111214;border:0;color:var(--ds-color-text-muted);font-size:9p
 .artboard{box-shadow:none}.artboard.dark,.dark-swatch{background:#3c3c3c}
 .number input[type="number"]{-moz-appearance:textfield;appearance:textfield}.number input[type="number"]::-webkit-inner-spin-button,.number input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .preset-settings{display:flex;flex-direction:column;gap:18px;padding:30px 0 6px}.preset-settings label{display:block;margin:0 0 8px}.setting-group{padding:0 16px}.setting-group select{width:100%;margin:0}.setting-group .origin-grid{margin:0}
+.preset-list small,.layer small,.layer-hint,.drop-note small,.instant-note,.preset-empty,footer{font-family:Base,"SB Sans Text","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:10px;font-weight:400;line-height:10px;letter-spacing:normal;color:rgba(255,255,255,.32);text-transform:none}
