@@ -44,8 +44,8 @@ const presetRecipes: Record<Preset, Partial<Anim>> = {
   swayX: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   swayY: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   bell: { duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 100, origin: "50% 0%", iterations: "infinite" },
-  drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
-  drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
+  drawForward: { duration: 2.2, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "1", motion: "draw", drawPoint: 92 },
+  drawReverse: { duration: 2.2, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "1", motion: "draw", drawPoint: 89 },
 };
 
 function animationsForPreset(preset: Preset, layers: Layer[], loop = false) {
@@ -260,7 +260,7 @@ export default function Home() {
           </div>
           <div className="grid"/>
           {sceneMode === "editor" ? <div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/> :
-            <div className="preset-gallery" aria-label="Все пресеты анимации">{presetPreviews.map(item => <article className="preset-preview-card" key={item.id}><div className={`preset-preview-icon ${sceneBackground}`} dangerouslySetInnerHTML={{ __html: item.svg }}/><div className="preset-preview-caption"><b>{item.name}</b><small>{item.note}</small></div></article>)}</div>}
+            <div className="preset-gallery" aria-label="Все пресеты анимации">{presetPreviews.map(item => <article className="preset-preview-card" key={item.id}><div className={`preset-preview-icon ${sceneBackground}`} dangerouslySetInnerHTML={{ __html: item.svg }}/><div className="preset-preview-caption"><b>{item.name}</b></div></article>)}</div>}
           {error && <div className="error">{error}</div>}<input ref={fileRef} hidden type="file" accept=".svg,image/svg+xml" onChange={(e: ChangeEvent<HTMLInputElement>) => readFile(e.target.files?.[0])}/>
         </div>
         <div className="stage-bottom-bar"><div className="timeline"><button className="player-button" onClick={() => setPlaying(!playing)} aria-label={playing ? "Пауза" : "Воспроизвести"}>{playing ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 12.5C6 13.3284 5.32843 14 4.5 14H2.5C1.67157 14 1 13.3284 1 12.5V3.5C1 2.67157 1.67157 2 2.5 2H4.5C5.32843 2 6 2.67157 6 3.5V12.5ZM15 12.5C15 13.3284 14.3284 14 13.5 14H11.5C10.6716 14 10 13.3284 10 12.5V3.5C10 2.67157 10.6716 2 11.5 2H13.5C14.3284 2 15 2.67157 15 3.5V12.5Z" fill="#D9D9D9"/></svg> : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M14 6.26795C15.3333 7.03775 15.3333 8.96225 14 9.73205L5 14.9282C3.66667 15.698 2 14.7358 2 13.1962V2.80385C2 1.26425 3.66667.301995 5 1.0718L14 6.26795Z" fill="white"/></svg>}</button><span className="total-time">{animationTotal.toLocaleString("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} с</span></div><button className="drop-note" onClick={() => fileRef.current?.click()}><span>↥</span><div><b>Перетащите SVG сюда</b><small>или нажмите, чтобы выбрать файл</small></div></button></div>
