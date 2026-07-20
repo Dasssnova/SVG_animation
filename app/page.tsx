@@ -124,8 +124,8 @@ function keyframes(a: Anim) {
   if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
   if (a.preset === "drawForward" || a.preset === "drawReverse") {
     const point = Math.min(99, Math.max(0, a.drawPoint || 0));
-    if (a.preset === "drawReverse") return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point}}100%{stroke-dasharray:100 0;stroke-dashoffset:${100 - point}}}`;
-    return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point}}100%{stroke-dasharray:100 0;stroke-dashoffset:${-point}}}`;
+    if (a.preset === "drawReverse") return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point};opacity:0}.1%{opacity:1}100%{stroke-dasharray:100 0;stroke-dashoffset:${100 - point};opacity:1}}`;
+    return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point};opacity:0}.1%{opacity:1}100%{stroke-dasharray:100 0;stroke-dashoffset:${-point};opacity:1}}`;
   }
   const d = a.distance, angle = a.angle;
   if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
