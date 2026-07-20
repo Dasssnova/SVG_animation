@@ -166,7 +166,7 @@ export default function Home() {
       fade: { motion: "fade", duration: 3, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "infinite" },
       flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
       heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
-      firework: { duration: 2.2, easing: "cubic-bezier(.18,.75,.25,1)", distance: 72, particleSize: 10, particleColor: "#ffffff" },
+      firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
       sway: { duration: 2.8, easing: "ease-in-out", angle: 10 },
       liquid: { duration: 2.6, easing: "cubic-bezier(.2,.75,.3,1)", distance: 48, iterations: "1" },
       jump: { duration: 1.3, easing: "cubic-bezier(.3,.8,.35,1)", distance: 22 },
