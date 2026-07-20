@@ -129,7 +129,8 @@ function buildAnimated(svgText: string, animations: Record<string, Anim>, playin
       const particleDelay = i * .018 - (seekSeconds || 0);
       rules.push(`[data-particle="${i}"]{transform-origin:${cx}px ${cy}px;animation:${pn} ${firework.duration}s ${firework.easing} ${particleDelay}s ${firework.iterations};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
     });
-    svg.appendChild(group);
+    const firstArtwork = [...svg.children].find(node => !["defs", "style", "title", "desc"].includes(node.tagName.toLowerCase()));
+    if (firstArtwork) svg.insertBefore(group, firstArtwork); else svg.appendChild(group);
   }
   const style = doc.createElementNS("http://www.w3.org/2000/svg", "style"); style.setAttribute("data-motion-styles", "true"); style.textContent = rules.join("\n");
   doc.documentElement.insertBefore(style, doc.documentElement.firstChild);
