@@ -44,7 +44,7 @@ const presetRecipes: Record<Preset, Partial<Anim>> = {
   swayX: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   swayY: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   bell: { duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 100, origin: "50% 0%", iterations: "infinite" },
-  drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
+  drawForward: { duration: 2.2, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "1", motion: "draw", drawPoint: 92 },
   drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
 };
 
