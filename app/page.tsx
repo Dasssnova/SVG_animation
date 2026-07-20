@@ -150,6 +150,7 @@ export default function Home() {
   const targets = selected.length ? selected : ["__root"];
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
+  const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
   const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
 
   const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
@@ -226,7 +227,7 @@ export default function Home() {
           <button className="drop-note" onClick={() => fileRef.current?.click()}><span>↥</span><div><b>Перетащите SVG сюда</b><small>или нажмите, чтобы выбрать файл</small></div></button>
           {error && <div className="error">{error}</div>}<input ref={fileRef} hidden type="file" accept=".svg,image/svg+xml" onChange={(e: ChangeEvent<HTMLInputElement>) => readFile(e.target.files?.[0])}/>
         </div>
-        <div className="timeline"><button onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button><span className="time">00:00.00</span><div className="track"><i style={{ left: `${Math.min(96, settings.delay / (settings.delay + settings.duration || 1) * 100)}%` }}/><b style={{ width: `${Math.max(12, settings.duration / 5 * 100)}%` }}/></div><span>{settings.duration.toFixed(2)}s</span></div>
+        <div className="timeline"><button className="player-button" onClick={() => setPlaying(!playing)} aria-label={playing ? "Пауза" : "Воспроизвести"}>{playing ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 12.5C6 13.3284 5.32843 14 4.5 14H2.5C1.67157 14 1 13.3284 1 12.5V3.5C1 2.67157 1.67157 2 2.5 2H4.5C5.32843 2 6 2.67157 6 3.5V12.5ZM15 12.5C15 13.3284 14.3284 14 13.5 14H11.5C10.6716 14 10 13.3284 10 12.5V3.5C10 2.67157 10.6716 2 11.5 2H13.5C14.3284 2 15 2.67157 15 3.5V12.5Z" fill="#D9D9D9"/></svg> : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M14 6.26795C15.3333 7.03775 15.3333 8.96225 14 9.73205L5 14.9282C3.66667 15.698 2 14.7358 2 13.1962V2.80385C2 1.26425 3.66667.301995 5 1.0718L14 6.26795Z" fill="white"/></svg>}</button><span className="total-time">{animationTotal.toLocaleString("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} с</span></div>
       </section>
       <aside className="controls panel"><div className="panel-title"><span>Пресеты</span></div><div className="controls-scroll">
         <div className="preset-list">{presets.map(p => <button key={p.id} className={settings.preset === p.id ? "active" : ""} onClick={() => applyPreset(p.id)}><i>{p.icon}</i><span><b>{p.name}</b><small>{p.note}</small></span><em>▶</em></button>)}</div>
