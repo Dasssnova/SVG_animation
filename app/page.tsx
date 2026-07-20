@@ -162,7 +162,7 @@ export default function Home() {
   };
   const applyPreset = (preset: Preset) => {
     const recipe: Record<Preset, Partial<Anim>> = {
-      rotate: { motion: "rotate", duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 20, iterations: "infinite", direction: "alternate" },
+      rotate: { motion: "rotate", duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 20, iterations: "2", direction: "alternate" },
       fade: { motion: "fade", duration: 3, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "infinite" },
       flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
       heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
