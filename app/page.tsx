@@ -4,7 +4,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "re
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 
 type Motion = "rotate" | "translate" | "fade" | "scale" | "bounce" | "draw";
-type Preset = "rotate" | "fade" | "flyback" | "heartbeat" | "firework" | "sway" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
+type Preset = "rotate" | "fade" | "flyback" | "heartbeat" | "firework" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
 type Anim = { motion: Motion; preset?: Preset; duration: number; delay: number; easing: string; iterations: string; distance: number; angle: number; direction: "normal" | "reverse" | "alternate"; dx?: number; dy?: number; origin?: string; particleSize?: number; particleColor?: string; drawPoint?: number };
 type Layer = { id: string; label: string; tag: string };
 
@@ -17,17 +17,16 @@ const easingOptions = [
   ["Ровно", "linear"],
 ];
 const presets: { id: Preset; icon: string; name: string; note: string }[] = [
-  { id: "rotate", icon: "↻", name: "Поворот", note: "Вращение вокруг центра" },
-  { id: "fade", icon: "◐", name: "Исчезновение", note: "Плавное появление и скрытие" },
   { id: "flyback", icon: "⇢", name: "Вылет и возврат", note: "Стоп · вылет назад" },
-  { id: "heartbeat", icon: "♥", name: "Биение сердца", note: "Двойной пульс" },
-  { id: "firework", icon: "✦", name: "Фейерверк", note: "Из центра наружу" },
-  { id: "sway", icon: "≈", name: "Покачивание", note: "Мягко из стороны в сторону" },
-  { id: "liquid", icon: "◒", name: "Жидкая заливка", note: "Подъём снизу" },
+  { id: "fade", icon: "◐", name: "Исчезновение", note: "Плавное появление и скрытие" },
   { id: "jump", icon: "↟", name: "Подпрыгивание", note: "Ритмично вверх и вниз" },
-  { id: "fadeSequence", icon: "◌", name: "Поочерёдное появление", note: "Каждый элемент отдельно" },
   { id: "swayY", icon: "↕", name: "Покачивание вверх-вниз", note: "Мягкая вертикальная петля" },
   { id: "swayX", icon: "↔", name: "Покачивание вправо-влево", note: "Мягкая горизонтальная петля" },
+  { id: "rotate", icon: "↻", name: "Поворот", note: "Вращение вокруг центра" },
+  { id: "heartbeat", icon: "♥", name: "Биение сердца", note: "Двойной пульс" },
+  { id: "firework", icon: "✦", name: "Фейерверк", note: "Из центра наружу" },
+  { id: "liquid", icon: "◒", name: "Жидкая заливка", note: "Подъём снизу" },
+  { id: "fadeSequence", icon: "◌", name: "Поочерёдное появление", note: "Каждый элемент отдельно" },
   { id: "bell", icon: "♧", name: "Колокольчик", note: "Вращение от точки подвеса" },
   { id: "drawForward", icon: "↝", name: "Линия: вперёд", note: "От начала к концу" },
   { id: "drawReverse", icon: "↜", name: "Линия: назад", note: "От конца к началу" },
@@ -39,12 +38,11 @@ const presetRecipes: Record<Preset, Partial<Anim>> = {
   flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
   firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
-  sway: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   liquid: { duration: 2.6, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 10, iterations: "1" },
   jump: { duration: 1.3, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 3, iterations: "infinite" },
   fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
   swayX: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
-  swayY: { duration: 2.4, easing: "ease-in-out", distance: 7 },
+  swayY: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   bell: { duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 100, origin: "50% 0%", iterations: "infinite" },
   drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
   drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
@@ -70,6 +68,10 @@ const alphaBayer8 = [
   2,50,14,62,1,49,13,61, 34,18,46,30,33,17,45,29,
   10,58,6,54,9,57,5,53, 42,26,38,22,41,25,37,21,
 ];
+
+function fileNamePart(value: string) {
+  return value.trim().toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "animation";
+}
 
 function ditherGifAlpha(rgba: Uint8ClampedArray, width: number) {
   for (let pixel = 0; pixel < rgba.length / 4; pixel++) {
@@ -115,7 +117,6 @@ function keyframes(a: Anim) {
   if (a.preset === "flyback") return `0%{transform:translateX(-${a.distance * 1.4}px);opacity:0}22%{transform:translateX(0);opacity:1}52%{transform:translateX(0);opacity:1}78%,100%{transform:translateX(${a.distance * 1.4}px);opacity:0}}`;
   if (a.preset === "heartbeat") return `0%,28%,100%{transform:scale(1)}10%{transform:scale(1.16)}18%{transform:scale(.96)}24%{transform:scale(1.1)}}`;
   if (a.preset === "firework") return `0%,100%{transform:scale(1)}12%{transform:scale(.92)}28%{transform:scale(1.08)}45%{transform:scale(1)}}`;
-  if (a.preset === "sway") return `0%,100%{transform:translateX(-${a.distance}px)}50%{transform:translateX(${a.distance}px)}}`;
   if (a.preset === "liquid") return `0%{transform:translateY(${a.distance * 2.4}px) scaleY(.12);opacity:0}18%{opacity:.45}72%{transform:translateY(-3px) scaleY(1.04);opacity:1}88%,100%{transform:translateY(0) scaleY(1);opacity:1}}`;
   if (a.preset === "jump") return `0%,100%{transform:translateY(0)}38%{transform:translateY(-${a.distance}px)}55%{transform:translateY(3px) scaleY(.94)}68%{transform:translateY(-${a.distance * .28}px)}82%{transform:translateY(0)}}`;
   if (a.preset === "fadeSequence") return `0%,15%{opacity:0;transform:scale(.88)}38%,68%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.96)}}`;
@@ -193,18 +194,19 @@ export default function Home() {
   const [settings, setSettings] = useState<Anim>(defaults); const [playing, setPlaying] = useState(true);
   const [sceneBackground, setSceneBackground] = useState<"light" | "dark">("light");
   const [sceneMode, setSceneMode] = useState<"editor" | "gallery">("editor");
-  const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("icon");
+  const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("heart");
   const [gifProgress, setGifProgress] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = (raw: string, name = "icon") => { try { const parsed = prepareSvg(raw); setSvgText(parsed.svg); setLayers(parsed.layers); setSelected(parsed.layers[0] ? [parsed.layers[0].id] : ["__root"]); setAnimations({}); setFileName(name.replace(/\.svg$/i, "")); setError(""); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось прочитать SVG"); } };
-  useEffect(() => { load(demoSvg, "orbit-star"); }, []);
+  useEffect(() => { load(demoSvg, "heart"); }, []);
   const targets = selected.length ? selected : ["__root"];
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
   const presetPreviews = useMemo(() => svgText ? presets.map(preset => ({ ...preset, svg: buildAnimated(svgText, animationsForPreset(preset.id, layers, true).animations, playing, undefined, `gallery-${preset.id}-`) })) : [], [svgText, layers, playing]);
   const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
-  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "sway", "swayX", "swayY"];
+  const exportFileName = `${fileNamePart(fileName)}_anim_${fileNamePart(presets.find(preset => preset.id === settings.preset)?.name || "animation")}`;
+  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
 
   const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
   const choose = (id: string, additive: boolean) => { setSelected(prev => additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev.filter(x => x !== "__root"), id]) : [id]); const a = id === "__root" ? Object.values(animations)[0] : animations[id]; setSettings(a || defaults); };
@@ -219,7 +221,7 @@ export default function Home() {
   };
   const readFile = (file?: File) => { if (!file) return; if (!file.name.toLowerCase().endsWith(".svg") && file.type !== "image/svg+xml") { setError("Выберите файл в формате .svg"); return; } const r = new FileReader(); r.onload = () => load(String(r.result), file.name); r.readAsText(file); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); readFile(e.dataTransfer.files[0]); };
-  const download = () => { const output = buildAnimated(svgText, effectiveAnimations, true); const blob = new Blob([output], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
+  const download = () => { const output = buildAnimated(svgText, effectiveAnimations, true); const blob = new Blob([output], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${exportFileName}.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
   const downloadGif = async () => {
     if (!svgText || gifProgress !== null) return;
     setGifProgress(0); setError("");
@@ -243,7 +245,7 @@ export default function Home() {
         gif.writeFrame(index, width, height, { palette, delay: 20, repeat: 0, transparent: true, transparentIndex, dispose: 2 });
         setGifProgress(Math.round(((frame + 1) / frames) * 100)); if (frame % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
       }
-      gif.finish(); const blob = new Blob([gif.bytes()], { type: "image/gif" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.gif`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      gif.finish(); const blob = new Blob([gif.bytes()], { type: "image/gif" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${exportFileName}.gif`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
     } catch (e) { setError(e instanceof Error ? e.message : "Не удалось создать GIF"); } finally { setGifProgress(null); }
   };
 
@@ -253,8 +255,8 @@ export default function Home() {
       <section className="stage panel">
         <div className={`canvas ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
           <div className="stage-background-controls">
-            <div className="scene-mode-picker" aria-label="Режим сцены"><button className={sceneMode === "editor" ? "active" : ""} onClick={() => setSceneMode("editor")}>Сцена</button><button className={sceneMode === "gallery" ? "active" : ""} onClick={() => setSceneMode("gallery")}>Все пресеты</button></div>
             <div className="background-picker" aria-label="Фон сцены"><button className={sceneBackground === "light" ? "active" : ""} onClick={() => setSceneBackground("light")}><i className="light-swatch"/>Светлый</button><button className={sceneBackground === "dark" ? "active" : ""} onClick={() => setSceneBackground("dark")}><i className="dark-swatch"/>Тёмный</button></div>
+            <div className="scene-mode-picker" aria-label="Режим сцены"><button className={sceneMode === "editor" ? "active" : ""} onClick={() => setSceneMode("editor")}>Сцена</button><button className={sceneMode === "gallery" ? "active" : ""} onClick={() => setSceneMode("gallery")}>Все пресеты</button></div>
           </div>
           <div className="grid"/>
           {sceneMode === "editor" ? <div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/> :
