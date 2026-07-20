@@ -250,8 +250,8 @@ export default function Home() {
       <section className="stage panel">
         <div className={`canvas ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
           <div className="stage-background-controls">
-            <div className="scene-mode-picker" aria-label="Режим сцены"><button className={sceneMode === "editor" ? "active" : ""} onClick={() => setSceneMode("editor")}>Сцена</button><button className={sceneMode === "gallery" ? "active" : ""} onClick={() => setSceneMode("gallery")}>Все пресеты</button></div>
             <div className="background-picker" aria-label="Фон сцены"><button className={sceneBackground === "light" ? "active" : ""} onClick={() => setSceneBackground("light")}><i className="light-swatch"/>Светлый</button><button className={sceneBackground === "dark" ? "active" : ""} onClick={() => setSceneBackground("dark")}><i className="dark-swatch"/>Тёмный</button></div>
+            <div className="scene-mode-picker" aria-label="Режим сцены"><button className={sceneMode === "editor" ? "active" : ""} onClick={() => setSceneMode("editor")}>Сцена</button><button className={sceneMode === "gallery" ? "active" : ""} onClick={() => setSceneMode("gallery")}>Все пресеты</button></div>
           </div>
           <div className="grid"/>
           {sceneMode === "editor" ? <div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/> :
