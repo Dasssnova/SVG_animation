@@ -91,7 +91,12 @@ function keyframes(a: Anim) {
   if (a.preset === "swayY") return `0%,100%{transform:translateY(-${a.distance}px)}50%{transform:translateY(${a.distance}px)}}`;
   if (a.preset === "swayX") return `0%,100%{transform:translateX(-${a.distance}px)}50%{transform:translateX(${a.distance}px)}}`;
   if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
-  if (a.preset === "drawForward" || a.preset === "drawReverse") { const remaining = 100 - Math.min(99, Math.max(0, a.drawPoint || 0)); return `0%{stroke-dashoffset:${a.preset === "drawReverse" ? -remaining : remaining}}100%{stroke-dashoffset:0}}`; }
+  if (a.preset === "drawForward" || a.preset === "drawReverse") {
+    const point = Math.min(99, Math.max(0, a.drawPoint || 0));
+    const endOffset = -point;
+    const startOffset = endOffset + (a.preset === "drawReverse" ? -100 : 100);
+    return `0%{stroke-dashoffset:${startOffset}}100%{stroke-dashoffset:${endOffset}}}`;
+  }
   const d = a.distance, angle = a.angle;
   if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
   if (a.motion === "translate") return `0%,100%{transform:translateX(0)}50%{transform:translateX(${d}px)}}`;
