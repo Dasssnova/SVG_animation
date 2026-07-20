@@ -230,7 +230,7 @@ export default function Home() {
       </section>
       <aside className="controls panel"><div className="panel-title"><span>Пресеты</span></div><div className="controls-scroll">
         <div className="preset-list">{presets.map(p => <button key={p.id} className={settings.preset === p.id ? "active" : ""} onClick={() => applyPreset(p.id)}><i>{p.icon}</i><span><b>{p.name}</b><small>{p.note}</small></span><em>▶</em></button>)}</div>
-        {settings.preset ? <div className="preset-settings"><div className="section-break"><span>Настройки: {presets.find(p => p.id === settings.preset)?.name}</span></div>
+        {settings.preset ? <div className="preset-settings">
           {settings.preset === "bell" && <><label>Точка подвеса</label><div className="origin-grid">{[["0% 0%","↖"],["50% 0%","↑"],["100% 0%","↗"],["0% 50%","←"],["50% 50%","•"],["100% 50%","→"],["0% 100%","↙"],["50% 100%","↓"],["100% 100%","↘"]].map(([v,n]) => <button key={v} className={settings.origin === v ? "active" : ""} title={v} onClick={() => updateAnimation({origin:v})}>{n}</button>)}</div></>}
           <div className="two"><Field label="Длительность" suffix="с" value={settings.duration} min={.1} step={.1} onChange={v => updateAnimation({duration:v})}/><Field label="Задержка" suffix="с" value={settings.delay} min={0} step={.1} onChange={v => updateAnimation({delay:v})}/></div>
           <label>Характер движения</label><select value={settings.easing} onChange={e => updateAnimation({easing:e.target.value})}>{easingOptions.map(([n,v]) => <option key={v} value={v}>{n}</option>)}</select>
