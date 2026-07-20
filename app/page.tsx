@@ -241,7 +241,7 @@ export default function Home() {
         <div className="export-actions"><button className="gif-export" onClick={downloadGif} disabled={!svgText || gifProgress !== null}>{gifProgress === null ? "Экспорт GIF" : `GIF ${gifProgress}%`} <span>↓</span></button><button className="export" onClick={download} disabled={!svgText}>Экспорт SVG <span>↓</span></button></div>
       </aside>
     </section>
-    <footer>© 2026 · Аниматор 1.0</footer>
+    <footer>2026, Аниматор 1.0</footer>
   </main>;
 }
 
