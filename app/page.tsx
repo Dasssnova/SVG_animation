@@ -33,6 +33,37 @@ const presets: { id: Preset; icon: string; name: string; note: string }[] = [
   { id: "drawReverse", icon: "↜", name: "Линия: назад", note: "От конца к началу" },
 ];
 
+const presetRecipes: Record<Preset, Partial<Anim>> = {
+  rotate: { motion: "rotate", duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 20, iterations: "2", direction: "alternate" },
+  fade: { motion: "fade", duration: 3, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "infinite" },
+  flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
+  heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
+  firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
+  sway: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
+  liquid: { duration: 2.6, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 10, iterations: "1" },
+  jump: { duration: 1.3, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 3, iterations: "infinite" },
+  fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
+  swayX: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
+  swayY: { duration: 2.4, easing: "ease-in-out", distance: 7 },
+  bell: { duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 100, origin: "50% 0%", iterations: "infinite" },
+  drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
+  drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
+};
+
+function animationsForPreset(preset: Preset, layers: Layer[], loop = false) {
+  const base = { ...defaults, ...presetRecipes[preset], preset, ...(loop ? { iterations: "infinite" } : {}) } as Anim;
+  const count = Math.max(layers.length, 1);
+  return {
+    base,
+    animations: Object.fromEntries(layers.map((layer, i) => {
+      const angle = -Math.PI / 2 + (Math.PI * 2 * i) / count;
+      const radius = 48 + (i % 3) * 16;
+      const stagger = preset === "fadeSequence" ? i * .22 : preset === "liquid" ? i * .035 : 0;
+      return [layer.id, { ...base, delay: stagger, dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius }];
+    })) as Record<string, Anim>,
+  };
+}
+
 const alphaBayer8 = [
   0,48,12,60,3,51,15,63, 32,16,44,28,35,19,47,31,
   8,56,4,52,11,59,7,55, 40,24,36,20,43,27,39,23,
@@ -93,9 +124,11 @@ function keyframes(a: Anim) {
   if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
   if (a.preset === "drawForward" || a.preset === "drawReverse") {
     const point = Math.min(99, Math.max(0, a.drawPoint || 0));
-    const endOffset = -point;
-    const startOffset = endOffset + (a.preset === "drawReverse" ? -100 : 100);
-    return `0%{stroke-dashoffset:${startOffset}}100%{stroke-dashoffset:${endOffset}}}`;
+    const reverse = a.preset === "drawReverse";
+    const seam = reverse ? point : 100 - point;
+    const seamFix = seam > .2 && seam < 99.8 ? `${(seam - .1).toFixed(1)}%{stroke-linecap:var(--motion-linecap)}${seam.toFixed(1)}%{stroke-linecap:butt}${(seam + .1).toFixed(1)}%{stroke-linecap:var(--motion-linecap)}` : "";
+    const endOffset = reverse ? 100 - point : -point;
+    return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point};stroke-linecap:var(--motion-linecap);opacity:0}.1%{opacity:1}${seamFix}100%{stroke-dasharray:100 0;stroke-dashoffset:${endOffset};stroke-linecap:var(--motion-linecap);opacity:1}}`;
   }
   const d = a.distance, angle = a.angle;
   if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
@@ -106,18 +139,30 @@ function keyframes(a: Anim) {
   return `0%{stroke-dashoffset:220}100%{stroke-dashoffset:0}}`;
 }
 
-function buildAnimated(svgText: string, animations: Record<string, Anim>, playing = true, seekSeconds?: number) {
+function buildAnimated(svgText: string, animations: Record<string, Anim>, playing = true, seekSeconds?: number, namespace = "") {
   const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  if (namespace) doc.documentElement.setAttribute("data-motion-scope", namespace);
   doc.querySelector("style[data-motion-styles]")?.remove();
   doc.querySelector("[data-motion-particles]")?.remove();
   const rules: string[] = [];
   Object.entries(animations).forEach(([id, a], i) => {
-    const name = `iconMotion${i}`;
+    const name = `${namespace}iconMotion${i}`;
     rules.push(`@keyframes ${name}{${keyframes(a)}`);
     const isDraw = a.motion === "draw" || a.preset === "drawForward" || a.preset === "drawReverse";
-    if (isDraw) doc.querySelector(`[data-motion-id="${id}"]`)?.querySelectorAll("path,line,polyline,polygon,circle,rect").forEach(el => el.setAttribute("pathLength", "100"));
-    const target = isDraw ? `[data-motion-id="${id}"],[data-motion-id="${id}"] path,[data-motion-id="${id}"] line,[data-motion-id="${id}"] polyline,[data-motion-id="${id}"] polygon,[data-motion-id="${id}"] circle,[data-motion-id="${id}"] rect` : `[data-motion-id="${id}"]`;
-    const draw = isDraw ? "stroke-dasharray:100;" : "";
+    if (isDraw) {
+      const motionRoot = doc.querySelector(`[data-motion-id="${id}"]`);
+      const drawableSelector = "path,line,polyline,polygon,circle,rect";
+      const drawableElements = motionRoot ? [...(motionRoot.matches(drawableSelector) ? [motionRoot] : []), ...motionRoot.querySelectorAll(drawableSelector)] : [];
+      drawableElements.forEach(el => {
+        el.setAttribute("pathLength", "100");
+        const linecap = el.getAttribute("stroke-linecap") || "butt";
+        el.setAttribute("style", `${el.getAttribute("style") || ""};--motion-linecap:${linecap}`);
+      });
+    }
+    const scope = namespace ? `svg[data-motion-scope="${namespace}"] ` : "";
+    const targetSelectors = isDraw ? [`[data-motion-id="${id}"]`,`[data-motion-id="${id}"] path`,`[data-motion-id="${id}"] line`,`[data-motion-id="${id}"] polyline`,`[data-motion-id="${id}"] polygon`,`[data-motion-id="${id}"] circle`,`[data-motion-id="${id}"] rect`] : [`[data-motion-id="${id}"]`];
+    const target = targetSelectors.map(selector => `${scope}${selector}`).join(",");
+    const draw = isDraw ? "stroke-dasharray:0 100;" : "";
     const delay = seekSeconds === undefined ? a.delay : a.delay - seekSeconds;
     rules.push(`${target}{${draw}transform-box:fill-box;transform-origin:${a.origin || "center"};animation:${name} ${a.duration}s ${a.easing} ${delay}s ${a.iterations} ${a.direction};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
   });
@@ -129,9 +174,10 @@ function buildAnimated(svgText: string, animations: Record<string, Anim>, playin
     Array.from({ length: 20 }).forEach((_, i) => {
       const line = doc.createElementNS("http://www.w3.org/2000/svg", "line"); const angle = i * 18 + (i % 2) * 5; const radius = 52 + (i % 4) * 12; const particleSize = firework.particleSize || 10;
       line.setAttribute("x1", String(cx)); line.setAttribute("y1", String(cy - particleSize / 2)); line.setAttribute("x2", String(cx)); line.setAttribute("y2", String(cy + particleSize / 2)); line.setAttribute("stroke", firework.particleColor || "#ffffff"); line.setAttribute("stroke-width", String(Math.max(1.5, particleSize / 4))); line.setAttribute("stroke-linecap", "round"); line.setAttribute("data-particle", String(i)); group.appendChild(line);
-      const pn = `particleBurst${i}`; rules.push(`@keyframes ${pn}{0%,8%{transform:rotate(${angle}deg) translateY(0) scaleY(.15);opacity:0}20%{opacity:1}68%{transform:rotate(${angle}deg) translateY(-${radius}px) scaleY(1);opacity:1}100%{transform:rotate(${angle}deg) translateY(-${radius * 1.3}px) scaleY(.35);opacity:0}}`);
+      const pn = `${namespace}particleBurst${i}`; rules.push(`@keyframes ${pn}{0%,8%{transform:rotate(${angle}deg) translateY(0) scaleY(.15);opacity:0}20%{opacity:1}68%{transform:rotate(${angle}deg) translateY(-${radius}px) scaleY(1);opacity:1}100%{transform:rotate(${angle}deg) translateY(-${radius * 1.3}px) scaleY(.35);opacity:0}}`);
       const particleDelay = i * .018 - (seekSeconds || 0);
-      rules.push(`[data-particle="${i}"]{transform-origin:${cx}px ${cy}px;animation:${pn} ${firework.duration}s ${firework.easing} ${particleDelay}s ${firework.iterations};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
+      const particleScope = namespace ? `svg[data-motion-scope="${namespace}"] ` : "";
+      rules.push(`${particleScope}[data-particle="${i}"]{transform-origin:${cx}px ${cy}px;animation:${pn} ${firework.duration}s ${firework.easing} ${particleDelay}s ${firework.iterations};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
     });
     const firstArtwork = [...svg.children].find(node => !["defs", "style", "title", "desc"].includes(node.tagName.toLowerCase()));
     if (firstArtwork) svg.insertBefore(group, firstArtwork); else svg.appendChild(group);
@@ -146,6 +192,7 @@ export default function Home() {
   const [selected, setSelected] = useState<string[]>([]); const [animations, setAnimations] = useState<Record<string, Anim>>({});
   const [settings, setSettings] = useState<Anim>(defaults); const [playing, setPlaying] = useState(true);
   const [sceneBackground, setSceneBackground] = useState<"light" | "dark">("light");
+  const [sceneMode, setSceneMode] = useState<"editor" | "gallery">("editor");
   const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("icon");
   const [gifProgress, setGifProgress] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -155,6 +202,7 @@ export default function Home() {
   const targets = selected.length ? selected : ["__root"];
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
+  const presetPreviews = useMemo(() => svgText ? presets.map(preset => ({ ...preset, svg: buildAnimated(svgText, animationsForPreset(preset.id, layers, true).animations, playing, undefined, `gallery-${preset.id}-`) })) : [], [svgText, layers, playing]);
   const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
   const distancePresets: Preset[] = ["flyback", "liquid", "jump", "sway", "swayX", "swayY"];
 
@@ -165,31 +213,8 @@ export default function Home() {
     setAnimations(prev => { const next = { ...prev }; const isRoot = targets.includes("__root"); const ids = isRoot ? Object.keys(next) : targets; const delayDelta = patch.delay === undefined ? 0 : patch.delay - settings.delay; ids.forEach(id => { if (next[id]) next[id] = { ...next[id], ...patch, ...(isRoot && patch.delay !== undefined ? { delay: Math.max(0, next[id].delay + delayDelta) } : {}) }; }); return next; }); restartPreview();
   };
   const applyPreset = (preset: Preset) => {
-    const recipe: Record<Preset, Partial<Anim>> = {
-      rotate: { motion: "rotate", duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 20, iterations: "2", direction: "alternate" },
-      fade: { motion: "fade", duration: 3, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", iterations: "infinite" },
-      flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
-      heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
-      firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
-      sway: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
-      liquid: { duration: 2.6, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 10, iterations: "1" },
-      jump: { duration: 1.3, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 3, iterations: "infinite" },
-      fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
-      swayX: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
-      swayY: { duration: 2.4, easing: "ease-in-out", distance: 7 },
-      bell: { duration: 1.8, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", angle: 100, origin: "50% 0%", iterations: "infinite" },
-      drawForward: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
-      drawReverse: { duration: 2.2, easing: "ease-in-out", iterations: "1", motion: "draw", drawPoint: 0 },
-    };
-    const base = { ...defaults, ...recipe[preset], preset };
-    const count = Math.max(layers.length, 1);
-    setAnimations(prev => { const next: Record<string, Anim> = targets.includes("__root") ? {} : { ...prev }; const targetLayers = targets.includes("__root") ? layers : layers.filter(layer => targets.includes(layer.id)); targetLayers.forEach((layer) => {
-      const i = layers.findIndex(item => item.id === layer.id);
-      const angle = -Math.PI / 2 + (Math.PI * 2 * i) / count;
-      const radius = 48 + (i % 3) * 16;
-      const stagger = preset === "fadeSequence" ? i * .22 : preset === "liquid" ? i * .035 : 0;
-      next[layer.id] = { ...base, delay: stagger, dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
-    }); return next; });
+    const { base, animations: allPresetAnimations } = animationsForPreset(preset, layers);
+    setAnimations(prev => { const next: Record<string, Anim> = targets.includes("__root") ? {} : { ...prev }; const targetLayers = targets.includes("__root") ? layers : layers.filter(layer => targets.includes(layer.id)); targetLayers.forEach((layer) => { next[layer.id] = allPresetAnimations[layer.id]; }); return next; });
     setSettings(base); restartPreview();
   };
   const readFile = (file?: File) => { if (!file) return; if (!file.name.toLowerCase().endsWith(".svg") && file.type !== "image/svg+xml") { setError("Выберите файл в формате .svg"); return; } const r = new FileReader(); r.onload = () => load(String(r.result), file.name); r.readAsText(file); };
@@ -227,8 +252,13 @@ export default function Home() {
       <aside className="layers-panel panel"><div className="panel-title"><span>Слои</span></div><button className={`layer root ${selected.includes("__root") ? "active" : ""}`} onClick={() => choose("__root", false)}><i>◇</i><span>Вся иконка</span>{animations.__root && <b>●</b>}</button><div className="tree-line" />{layers.map((l, i) => <button key={l.id} className={`layer ${selected.includes(l.id) ? "active" : ""}`} onClick={(e) => choose(l.id, e.metaKey || e.ctrlKey)}><i>{l.tag === "g" ? "⌗" : l.tag === "path" ? "⌁" : "○"}</i><span>{l.label}</span><small>{l.tag}</small>{animations[l.id] && <b>●</b>}</button>)}<div className="layer-hint">⌘ + клик — выбрать несколько</div></aside>
       <section className="stage panel">
         <div className={`canvas ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
-          <div className="stage-background-controls" aria-label="Фон сцены"><div className="background-picker"><button className={sceneBackground === "light" ? "active" : ""} onClick={() => setSceneBackground("light")}><i className="light-swatch"/>Светлый</button><button className={sceneBackground === "dark" ? "active" : ""} onClick={() => setSceneBackground("dark")}><i className="dark-swatch"/>Тёмный</button></div></div>
-          <div className="grid"/><div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/>
+          <div className="stage-background-controls">
+            <div className="scene-mode-picker" aria-label="Режим сцены"><button className={sceneMode === "editor" ? "active" : ""} onClick={() => setSceneMode("editor")}>Сцена</button><button className={sceneMode === "gallery" ? "active" : ""} onClick={() => setSceneMode("gallery")}>Все пресеты</button></div>
+            <div className="background-picker" aria-label="Фон сцены"><button className={sceneBackground === "light" ? "active" : ""} onClick={() => setSceneBackground("light")}><i className="light-swatch"/>Светлый</button><button className={sceneBackground === "dark" ? "active" : ""} onClick={() => setSceneBackground("dark")}><i className="dark-swatch"/>Тёмный</button></div>
+          </div>
+          <div className="grid"/>
+          {sceneMode === "editor" ? <div className={`artboard ${sceneBackground}`} data-scene-size="400 × 400" onClick={(e) => { const el = (e.target as Element).closest("[data-motion-id]"); if (el) choose(el.getAttribute("data-motion-id")!, e.metaKey || e.ctrlKey); }} dangerouslySetInnerHTML={{ __html: preview }}/> :
+            <div className="preset-gallery" aria-label="Все пресеты анимации">{presetPreviews.map(item => <article className="preset-preview-card" key={item.id}><div className={`preset-preview-icon ${sceneBackground}`} dangerouslySetInnerHTML={{ __html: item.svg }}/><div className="preset-preview-caption"><b>{item.name}</b><small>{item.note}</small></div></article>)}</div>}
           {error && <div className="error">{error}</div>}<input ref={fileRef} hidden type="file" accept=".svg,image/svg+xml" onChange={(e: ChangeEvent<HTMLInputElement>) => readFile(e.target.files?.[0])}/>
         </div>
         <div className="stage-bottom-bar"><div className="timeline"><button className="player-button" onClick={() => setPlaying(!playing)} aria-label={playing ? "Пауза" : "Воспроизвести"}>{playing ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 12.5C6 13.3284 5.32843 14 4.5 14H2.5C1.67157 14 1 13.3284 1 12.5V3.5C1 2.67157 1.67157 2 2.5 2H4.5C5.32843 2 6 2.67157 6 3.5V12.5ZM15 12.5C15 13.3284 14.3284 14 13.5 14H11.5C10.6716 14 10 13.3284 10 12.5V3.5C10 2.67157 10.6716 2 11.5 2H13.5C14.3284 2 15 2.67157 15 3.5V12.5Z" fill="#D9D9D9"/></svg> : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M14 6.26795C15.3333 7.03775 15.3333 8.96225 14 9.73205L5 14.9282C3.66667 15.698 2 14.7358 2 13.1962V2.80385C2 1.26425 3.66667.301995 5 1.0718L14 6.26795Z" fill="white"/></svg>}</button><span className="total-time">{animationTotal.toLocaleString("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} с</span></div><button className="drop-note" onClick={() => fileRef.current?.click()}><span>↥</span><div><b>Перетащите SVG сюда</b><small>или нажмите, чтобы выбрать файл</small></div></button></div>
