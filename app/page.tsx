@@ -69,6 +69,10 @@ const alphaBayer8 = [
   10,58,6,54,9,57,5,53, 42,26,38,22,41,25,37,21,
 ];
 
+function fileNamePart(value: string) {
+  return value.trim().toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "animation";
+}
+
 function ditherGifAlpha(rgba: Uint8ClampedArray, width: number) {
   for (let pixel = 0; pixel < rgba.length / 4; pixel++) {
     const alphaIndex = pixel * 4 + 3; const alpha = rgba[alphaIndex];
@@ -190,17 +194,18 @@ export default function Home() {
   const [settings, setSettings] = useState<Anim>(defaults); const [playing, setPlaying] = useState(true);
   const [sceneBackground, setSceneBackground] = useState<"light" | "dark">("light");
   const [sceneMode, setSceneMode] = useState<"editor" | "gallery">("editor");
-  const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("icon");
+  const [dragging, setDragging] = useState(false); const [error, setError] = useState(""); const [fileName, setFileName] = useState("heart");
   const [gifProgress, setGifProgress] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = (raw: string, name = "icon") => { try { const parsed = prepareSvg(raw); setSvgText(parsed.svg); setLayers(parsed.layers); setSelected(parsed.layers[0] ? [parsed.layers[0].id] : ["__root"]); setAnimations({}); setFileName(name.replace(/\.svg$/i, "")); setError(""); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось прочитать SVG"); } };
-  useEffect(() => { load(demoSvg, "orbit-star"); }, []);
+  useEffect(() => { load(demoSvg, "heart"); }, []);
   const targets = selected.length ? selected : ["__root"];
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
   const presetPreviews = useMemo(() => svgText ? presets.map(preset => ({ ...preset, svg: buildAnimated(svgText, animationsForPreset(preset.id, layers, true).animations, playing, undefined, `gallery-${preset.id}-`) })) : [], [svgText, layers, playing]);
   const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
+  const exportFileName = `${fileNamePart(fileName)}_anim_${fileNamePart(presets.find(preset => preset.id === settings.preset)?.name || "animation")}`;
   const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
 
   const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
@@ -216,7 +221,7 @@ export default function Home() {
   };
   const readFile = (file?: File) => { if (!file) return; if (!file.name.toLowerCase().endsWith(".svg") && file.type !== "image/svg+xml") { setError("Выберите файл в формате .svg"); return; } const r = new FileReader(); r.onload = () => load(String(r.result), file.name); r.readAsText(file); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDragging(false); readFile(e.dataTransfer.files[0]); };
-  const download = () => { const output = buildAnimated(svgText, effectiveAnimations, true); const blob = new Blob([output], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
+  const download = () => { const output = buildAnimated(svgText, effectiveAnimations, true); const blob = new Blob([output], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${exportFileName}.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
   const downloadGif = async () => {
     if (!svgText || gifProgress !== null) return;
     setGifProgress(0); setError("");
@@ -240,7 +245,7 @@ export default function Home() {
         gif.writeFrame(index, width, height, { palette, delay: 20, repeat: 0, transparent: true, transparentIndex, dispose: 2 });
         setGifProgress(Math.round(((frame + 1) / frames) * 100)); if (frame % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
       }
-      gif.finish(); const blob = new Blob([gif.bytes()], { type: "image/gif" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${fileName}-animated.gif`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      gif.finish(); const blob = new Blob([gif.bytes()], { type: "image/gif" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${exportFileName}.gif`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
     } catch (e) { setError(e instanceof Error ? e.message : "Не удалось создать GIF"); } finally { setGifProgress(null); }
   };
 
