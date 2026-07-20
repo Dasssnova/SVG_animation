@@ -84,7 +84,7 @@ function keyframes(a: Anim) {
   if (a.preset === "flyback") return `0%{transform:translateX(-${a.distance * 1.4}px);opacity:0}22%{transform:translateX(0);opacity:1}52%{transform:translateX(0);opacity:1}78%,100%{transform:translateX(${a.distance * 1.4}px);opacity:0}}`;
   if (a.preset === "heartbeat") return `0%,28%,100%{transform:scale(1)}10%{transform:scale(1.16)}18%{transform:scale(.96)}24%{transform:scale(1.1)}}`;
   if (a.preset === "firework") return `0%,100%{transform:scale(1)}12%{transform:scale(.92)}28%{transform:scale(1.08)}45%{transform:scale(1)}}`;
-  if (a.preset === "sway") return `0%,100%{transform:rotate(-${a.angle / 2}deg)}50%{transform:rotate(${a.angle / 2}deg)}}`;
+  if (a.preset === "sway") return `0%,100%{transform:translateX(-${a.distance}px)}50%{transform:translateX(${a.distance}px)}}`;
   if (a.preset === "liquid") return `0%{transform:translateY(${a.distance * 2.4}px) scaleY(.12);opacity:0}18%{opacity:.45}72%{transform:translateY(-3px) scaleY(1.04);opacity:1}88%,100%{transform:translateY(0) scaleY(1);opacity:1}}`;
   if (a.preset === "jump") return `0%,100%{transform:translateY(0)}38%{transform:translateY(-${a.distance}px)}55%{transform:translateY(3px) scaleY(.94)}68%{transform:translateY(-${a.distance * .28}px)}82%{transform:translateY(0)}}`;
   if (a.preset === "fadeSequence") return `0%,15%{opacity:0;transform:scale(.88)}38%,68%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.96)}}`;
@@ -152,7 +152,7 @@ export default function Home() {
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
   const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
-  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
+  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "sway", "swayX", "swayY"];
 
   const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
   const choose = (id: string, additive: boolean) => { setSelected(prev => additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev.filter(x => x !== "__root"), id]) : [id]); const a = id === "__root" ? Object.values(animations)[0] : animations[id]; setSettings(a || defaults); };
@@ -167,7 +167,7 @@ export default function Home() {
       flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
       heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
       firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
-      sway: { duration: 2.8, easing: "ease-in-out", angle: 10 },
+      sway: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
       liquid: { duration: 2.6, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 10, iterations: "1" },
       jump: { duration: 1.3, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 3, iterations: "infinite" },
       fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
@@ -237,7 +237,7 @@ export default function Home() {
           <div className="setting-group"><label>Характер движения</label><select value={settings.easing} onChange={e => updateAnimation({easing:e.target.value})}>{easingOptions.map(([n,v]) => <option key={v} value={v}>{n}</option>)}</select></div>
           {settings.preset === "firework" && <div className="two firework-settings"><Field label="Размер полосок" suffix="px" value={settings.particleSize || 10} min={1} step={1} onChange={v => updateAnimation({particleSize:v})}/><div><label>Цвет частиц</label><div className="color-field"><input type="color" value={settings.particleColor || "#ffffff"} onChange={e => updateAnimation({particleColor:e.target.value})}/><span>{settings.particleColor || "#ffffff"}</span></div></div></div>}
           {distancePresets.includes(settings.preset) && <div className="single-setting"><Field label="Амплитуда" suffix="px" value={settings.distance} min={0} step={1} onChange={v => updateAnimation({distance:v})}/></div>}
-          {(settings.preset === "rotate" || settings.preset === "bell" || settings.preset === "sway") && <div className="single-setting"><Field label={settings.preset === "bell" ? "Размах" : "Угол"} suffix="°" value={settings.angle} min={0} step={1} onChange={v => updateAnimation({angle:v})}/></div>}
+          {(settings.preset === "rotate" || settings.preset === "bell") && <div className="single-setting"><Field label={settings.preset === "bell" ? "Размах" : "Угол"} suffix="°" value={settings.angle} min={0} step={1} onChange={v => updateAnimation({angle:v})}/></div>}
           <div className="two"><div><label>Повтор</label><select value={settings.iterations} onChange={e => updateAnimation({iterations:e.target.value})}><option value="infinite">Всегда</option><option value="1">1 раз</option><option value="2">2 раза</option><option value="3">3 раза</option></select></div>{(settings.preset === "rotate" || settings.preset === "drawForward" || settings.preset === "drawReverse") && <div><label>Направление</label><select value={settings.direction} onChange={e => updateAnimation({direction:e.target.value as Anim["direction"]})}><option value="normal">Вперёд</option><option value="reverse">Назад</option><option value="alternate">Туда-сюда</option></select></div>}</div>
         </div> : null}</div>
         <div className="export-actions"><button className="gif-export" onClick={downloadGif} disabled={!svgText || gifProgress !== null}>{gifProgress === null ? "Экспорт GIF" : `GIF ${gifProgress}%`} <span>↓</span></button><button className="export" onClick={download} disabled={!svgText}>Экспорт SVG <span>↓</span></button></div>
