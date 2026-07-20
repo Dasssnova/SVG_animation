@@ -36,3 +36,4 @@ footer{background:#111214;border:0;color:var(--ds-color-text-muted);font-size:9p
 .stage-background-controls{padding:0;background:transparent;backdrop-filter:none;box-shadow:none}
 .artboard{box-shadow:none}.artboard.dark,.dark-swatch{background:#3c3c3c}
 .number input[type="number"]{-moz-appearance:textfield;appearance:textfield}.number input[type="number"]::-webkit-inner-spin-button,.number input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.preset-settings{display:flex;flex-direction:column;gap:18px;padding:30px 0 6px}.preset-settings label{display:block;margin:0 0 8px}.setting-group{padding:0 16px}.setting-group select{width:100%;margin:0}.setting-group .origin-grid{margin:0}
