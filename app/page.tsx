@@ -169,7 +169,7 @@ export default function Home() {
       firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
       sway: { duration: 2.8, easing: "ease-in-out", angle: 10 },
       liquid: { duration: 2.6, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 10, iterations: "1" },
-      jump: { duration: 1.3, easing: "cubic-bezier(.3,.8,.35,1)", distance: 22 },
+      jump: { duration: 1.3, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 3, iterations: "infinite" },
       fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
       swayX: { duration: 2.4, easing: "ease-in-out", distance: 7 },
       swayY: { duration: 2.4, easing: "ease-in-out", distance: 7 },
