@@ -4,7 +4,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "re
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 
 type Motion = "rotate" | "translate" | "fade" | "scale" | "bounce" | "draw";
-type Preset = "rotate" | "fade" | "flyback" | "heartbeat" | "firework" | "sway" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
+type Preset = "rotate" | "fade" | "flyback" | "heartbeat" | "firework" | "liquid" | "jump" | "fadeSequence" | "swayX" | "swayY" | "bell" | "drawForward" | "drawReverse";
 type Anim = { motion: Motion; preset?: Preset; duration: number; delay: number; easing: string; iterations: string; distance: number; angle: number; direction: "normal" | "reverse" | "alternate"; dx?: number; dy?: number; origin?: string; particleSize?: number; particleColor?: string; drawPoint?: number };
 type Layer = { id: string; label: string; tag: string };
 
@@ -22,7 +22,6 @@ const presets: { id: Preset; icon: string; name: string; note: string }[] = [
   { id: "flyback", icon: "⇢", name: "Вылет и возврат", note: "Стоп · вылет назад" },
   { id: "heartbeat", icon: "♥", name: "Биение сердца", note: "Двойной пульс" },
   { id: "firework", icon: "✦", name: "Фейерверк", note: "Из центра наружу" },
-  { id: "sway", icon: "≈", name: "Покачивание", note: "Мягко из стороны в сторону" },
   { id: "liquid", icon: "◒", name: "Жидкая заливка", note: "Подъём снизу" },
   { id: "jump", icon: "↟", name: "Подпрыгивание", note: "Ритмично вверх и вниз" },
   { id: "fadeSequence", icon: "◌", name: "Поочерёдное появление", note: "Каждый элемент отдельно" },
@@ -39,7 +38,6 @@ const presetRecipes: Record<Preset, Partial<Anim>> = {
   flyback: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   heartbeat: { duration: 2, delay: 0, easing: "cubic-bezier(.4,0,1,1)", iterations: "infinite" },
   firework: { duration: 4, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 72, particleSize: 2, particleColor: "#7c828e", iterations: "infinite" },
-  sway: { duration: 2.4, delay: 0, easing: "cubic-bezier(.45,0,.2,1)", distance: 2, iterations: "infinite" },
   liquid: { duration: 2.6, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 10, iterations: "1" },
   jump: { duration: 1.3, delay: 0, easing: "cubic-bezier(0,0,.2,1)", distance: 3, iterations: "infinite" },
   fadeSequence: { duration: 2.6, easing: "ease-in-out", iterations: "infinite" },
@@ -115,7 +113,6 @@ function keyframes(a: Anim) {
   if (a.preset === "flyback") return `0%{transform:translateX(-${a.distance * 1.4}px);opacity:0}22%{transform:translateX(0);opacity:1}52%{transform:translateX(0);opacity:1}78%,100%{transform:translateX(${a.distance * 1.4}px);opacity:0}}`;
   if (a.preset === "heartbeat") return `0%,28%,100%{transform:scale(1)}10%{transform:scale(1.16)}18%{transform:scale(.96)}24%{transform:scale(1.1)}}`;
   if (a.preset === "firework") return `0%,100%{transform:scale(1)}12%{transform:scale(.92)}28%{transform:scale(1.08)}45%{transform:scale(1)}}`;
-  if (a.preset === "sway") return `0%,100%{transform:translateX(-${a.distance}px)}50%{transform:translateX(${a.distance}px)}}`;
   if (a.preset === "liquid") return `0%{transform:translateY(${a.distance * 2.4}px) scaleY(.12);opacity:0}18%{opacity:.45}72%{transform:translateY(-3px) scaleY(1.04);opacity:1}88%,100%{transform:translateY(0) scaleY(1);opacity:1}}`;
   if (a.preset === "jump") return `0%,100%{transform:translateY(0)}38%{transform:translateY(-${a.distance}px)}55%{transform:translateY(3px) scaleY(.94)}68%{transform:translateY(-${a.distance * .28}px)}82%{transform:translateY(0)}}`;
   if (a.preset === "fadeSequence") return `0%,15%{opacity:0;transform:scale(.88)}38%,68%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.96)}}`;
@@ -204,7 +201,7 @@ export default function Home() {
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
   const presetPreviews = useMemo(() => svgText ? presets.map(preset => ({ ...preset, svg: buildAnimated(svgText, animationsForPreset(preset.id, layers, true).animations, playing, undefined, `gallery-${preset.id}-`) })) : [], [svgText, layers, playing]);
   const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
-  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "sway", "swayX", "swayY"];
+  const distancePresets: Preset[] = ["flyback", "liquid", "jump", "swayX", "swayY"];
 
   const restartPreview = () => { setPlaying(false); setTimeout(() => setPlaying(true), 30); };
   const choose = (id: string, additive: boolean) => { setSelected(prev => additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev.filter(x => x !== "__root"), id]) : [id]); const a = id === "__root" ? Object.values(animations)[0] : animations[id]; setSettings(a || defaults); };
