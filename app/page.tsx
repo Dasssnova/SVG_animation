@@ -136,17 +136,20 @@ function keyframes(a: Anim) {
   return `0%{stroke-dashoffset:220}100%{stroke-dashoffset:0}}`;
 }
 
-function buildAnimated(svgText: string, animations: Record<string, Anim>, playing = true, seekSeconds?: number) {
+function buildAnimated(svgText: string, animations: Record<string, Anim>, playing = true, seekSeconds?: number, namespace = "") {
   const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  if (namespace) doc.documentElement.setAttribute("data-motion-scope", namespace);
   doc.querySelector("style[data-motion-styles]")?.remove();
   doc.querySelector("[data-motion-particles]")?.remove();
   const rules: string[] = [];
   Object.entries(animations).forEach(([id, a], i) => {
-    const name = `iconMotion${i}`;
+    const name = `${namespace}iconMotion${i}`;
     rules.push(`@keyframes ${name}{${keyframes(a)}`);
     const isDraw = a.motion === "draw" || a.preset === "drawForward" || a.preset === "drawReverse";
     if (isDraw) doc.querySelector(`[data-motion-id="${id}"]`)?.querySelectorAll("path,line,polyline,polygon,circle,rect").forEach(el => el.setAttribute("pathLength", "100"));
-    const target = isDraw ? `[data-motion-id="${id}"],[data-motion-id="${id}"] path,[data-motion-id="${id}"] line,[data-motion-id="${id}"] polyline,[data-motion-id="${id}"] polygon,[data-motion-id="${id}"] circle,[data-motion-id="${id}"] rect` : `[data-motion-id="${id}"]`;
+    const scope = namespace ? `svg[data-motion-scope="${namespace}"] ` : "";
+    const targetSelectors = isDraw ? [`[data-motion-id="${id}"]`,`[data-motion-id="${id}"] path`,`[data-motion-id="${id}"] line`,`[data-motion-id="${id}"] polyline`,`[data-motion-id="${id}"] polygon`,`[data-motion-id="${id}"] circle`,`[data-motion-id="${id}"] rect`] : [`[data-motion-id="${id}"]`];
+    const target = targetSelectors.map(selector => `${scope}${selector}`).join(",");
     const draw = isDraw ? "stroke-dasharray:0 100;" : "";
     const delay = seekSeconds === undefined ? a.delay : a.delay - seekSeconds;
     rules.push(`${target}{${draw}transform-box:fill-box;transform-origin:${a.origin || "center"};animation:${name} ${a.duration}s ${a.easing} ${delay}s ${a.iterations} ${a.direction};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
@@ -159,9 +162,10 @@ function buildAnimated(svgText: string, animations: Record<string, Anim>, playin
     Array.from({ length: 20 }).forEach((_, i) => {
       const line = doc.createElementNS("http://www.w3.org/2000/svg", "line"); const angle = i * 18 + (i % 2) * 5; const radius = 52 + (i % 4) * 12; const particleSize = firework.particleSize || 10;
       line.setAttribute("x1", String(cx)); line.setAttribute("y1", String(cy - particleSize / 2)); line.setAttribute("x2", String(cx)); line.setAttribute("y2", String(cy + particleSize / 2)); line.setAttribute("stroke", firework.particleColor || "#ffffff"); line.setAttribute("stroke-width", String(Math.max(1.5, particleSize / 4))); line.setAttribute("stroke-linecap", "round"); line.setAttribute("data-particle", String(i)); group.appendChild(line);
-      const pn = `particleBurst${i}`; rules.push(`@keyframes ${pn}{0%,8%{transform:rotate(${angle}deg) translateY(0) scaleY(.15);opacity:0}20%{opacity:1}68%{transform:rotate(${angle}deg) translateY(-${radius}px) scaleY(1);opacity:1}100%{transform:rotate(${angle}deg) translateY(-${radius * 1.3}px) scaleY(.35);opacity:0}}`);
+      const pn = `${namespace}particleBurst${i}`; rules.push(`@keyframes ${pn}{0%,8%{transform:rotate(${angle}deg) translateY(0) scaleY(.15);opacity:0}20%{opacity:1}68%{transform:rotate(${angle}deg) translateY(-${radius}px) scaleY(1);opacity:1}100%{transform:rotate(${angle}deg) translateY(-${radius * 1.3}px) scaleY(.35);opacity:0}}`);
       const particleDelay = i * .018 - (seekSeconds || 0);
-      rules.push(`[data-particle="${i}"]{transform-origin:${cx}px ${cy}px;animation:${pn} ${firework.duration}s ${firework.easing} ${particleDelay}s ${firework.iterations};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
+      const particleScope = namespace ? `svg[data-motion-scope="${namespace}"] ` : "";
+      rules.push(`${particleScope}[data-particle="${i}"]{transform-origin:${cx}px ${cy}px;animation:${pn} ${firework.duration}s ${firework.easing} ${particleDelay}s ${firework.iterations};animation-play-state:${seekSeconds === undefined && playing ? "running" : "paused"};animation-fill-mode:both}`);
     });
     const firstArtwork = [...svg.children].find(node => !["defs", "style", "title", "desc"].includes(node.tagName.toLowerCase()));
     if (firstArtwork) svg.insertBefore(group, firstArtwork); else svg.appendChild(group);
@@ -186,7 +190,7 @@ export default function Home() {
   const targets = selected.length ? selected : ["__root"];
   const effectiveAnimations = useMemo(() => { const result = { ...animations }; if (result.__root) { const { __root, ...rest } = result; return Object.fromEntries(layers.map(l => [l.id, rest[l.id] || __root])); } return result; }, [animations, layers]);
   const preview = useMemo(() => svgText ? buildAnimated(svgText, effectiveAnimations, playing) : "", [svgText, effectiveAnimations, playing]);
-  const presetPreviews = useMemo(() => svgText ? presets.map(preset => ({ ...preset, svg: buildAnimated(svgText, animationsForPreset(preset.id, layers, true).animations, playing) })) : [], [svgText, layers, playing]);
+  const presetPreviews = useMemo(() => svgText ? presets.map(preset => ({ ...preset, svg: buildAnimated(svgText, animationsForPreset(preset.id, layers, true).animations, playing, undefined, `gallery-${preset.id}-`) })) : [], [svgText, layers, playing]);
   const animationTotal = Math.max(settings.duration + settings.delay, ...Object.values(effectiveAnimations).map(a => a.duration + a.delay));
   const distancePresets: Preset[] = ["flyback", "liquid", "jump", "sway", "swayX", "swayY"];
 
