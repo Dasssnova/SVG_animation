@@ -35,3 +35,4 @@ footer{background:#111214;border:0;color:var(--ds-color-text-muted);font-size:9p
 .artboard{box-shadow:0 24px 64px rgba(0,0,0,.4)}.artboard:before{display:none}.stage-background-controls{border:0}.stage-background-controls .background-picker{border:0}
 .stage-background-controls{padding:0;background:transparent;backdrop-filter:none;box-shadow:none}
 .artboard{box-shadow:none}.artboard.dark,.dark-swatch{background:#3c3c3c}
+.number input[type="number"]{-moz-appearance:textfield;appearance:textfield}.number input[type="number"]::-webkit-inner-spin-button,.number input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
