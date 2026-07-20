@@ -124,8 +124,11 @@ function keyframes(a: Anim) {
   if (a.preset === "bell") return `0%,100%{transform:rotate(-${Math.max(4, a.angle / 20)}deg)}50%{transform:rotate(${Math.max(4, a.angle / 20)}deg)}}`;
   if (a.preset === "drawForward" || a.preset === "drawReverse") {
     const point = Math.min(99, Math.max(0, a.drawPoint || 0));
-    if (a.preset === "drawReverse") return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point};opacity:0}.1%{opacity:1}100%{stroke-dasharray:100 0;stroke-dashoffset:${100 - point};opacity:1}}`;
-    return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point};opacity:0}.1%{opacity:1}100%{stroke-dasharray:100 0;stroke-dashoffset:${-point};opacity:1}}`;
+    const reverse = a.preset === "drawReverse";
+    const seam = reverse ? point : 100 - point;
+    const seamFix = seam > .2 && seam < 99.8 ? `${(seam - .1).toFixed(1)}%{stroke-linecap:var(--motion-linecap)}${seam.toFixed(1)}%{stroke-linecap:butt}${(seam + .1).toFixed(1)}%{stroke-linecap:var(--motion-linecap)}` : "";
+    const endOffset = reverse ? 100 - point : -point;
+    return `0%{stroke-dasharray:0 100;stroke-dashoffset:${-point};stroke-linecap:var(--motion-linecap);opacity:0}.1%{opacity:1}${seamFix}100%{stroke-dasharray:100 0;stroke-dashoffset:${endOffset};stroke-linecap:var(--motion-linecap);opacity:1}}`;
   }
   const d = a.distance, angle = a.angle;
   if (a.motion === "rotate") return `0%{transform:rotate(0deg)}100%{transform:rotate(${angle}deg)}}`;
@@ -146,7 +149,16 @@ function buildAnimated(svgText: string, animations: Record<string, Anim>, playin
     const name = `${namespace}iconMotion${i}`;
     rules.push(`@keyframes ${name}{${keyframes(a)}`);
     const isDraw = a.motion === "draw" || a.preset === "drawForward" || a.preset === "drawReverse";
-    if (isDraw) doc.querySelector(`[data-motion-id="${id}"]`)?.querySelectorAll("path,line,polyline,polygon,circle,rect").forEach(el => el.setAttribute("pathLength", "100"));
+    if (isDraw) {
+      const motionRoot = doc.querySelector(`[data-motion-id="${id}"]`);
+      const drawableSelector = "path,line,polyline,polygon,circle,rect";
+      const drawableElements = motionRoot ? [...(motionRoot.matches(drawableSelector) ? [motionRoot] : []), ...motionRoot.querySelectorAll(drawableSelector)] : [];
+      drawableElements.forEach(el => {
+        el.setAttribute("pathLength", "100");
+        const linecap = el.getAttribute("stroke-linecap") || "butt";
+        el.setAttribute("style", `${el.getAttribute("style") || ""};--motion-linecap:${linecap}`);
+      });
+    }
     const scope = namespace ? `svg[data-motion-scope="${namespace}"] ` : "";
     const targetSelectors = isDraw ? [`[data-motion-id="${id}"]`,`[data-motion-id="${id}"] path`,`[data-motion-id="${id}"] line`,`[data-motion-id="${id}"] polyline`,`[data-motion-id="${id}"] polygon`,`[data-motion-id="${id}"] circle`,`[data-motion-id="${id}"] rect`] : [`[data-motion-id="${id}"]`];
     const target = targetSelectors.map(selector => `${scope}${selector}`).join(",");
