@@ -32,3 +32,4 @@ footer{background:#111214;border:0;color:var(--ds-color-text-muted);font-size:9p
 
 /* Компоновка как в «Шаблонере»: боковые панели лежат на основном фоне */
 :root{--ds-color-bg:#191919;--bg:#191919}html,body,.app-shell,.workspace{background:#191919}.workspace{gap:12px}.layers-panel,.controls{background:transparent;border:0;border-radius:0}.layers-panel .panel-title,.controls .panel-title{border-bottom-color:transparent}.stage{background:#1e1e1e;border-color:#303030;border-radius:32px}.canvas{background:transparent}.export-actions{background:linear-gradient(180deg,rgba(25,25,25,.88),#191919 28%);border-top-color:rgba(255,255,255,.08);box-shadow:0 -12px 24px #191919}footer{background:#191919}
+.artboard{box-shadow:0 24px 64px rgba(0,0,0,.4)}.artboard:before{display:none}.stage-background-controls{border:0}.stage-background-controls .background-picker{border:0}
